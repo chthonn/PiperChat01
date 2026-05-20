@@ -1,5 +1,3 @@
-import config from "../config/index.js";
-
 import express from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
@@ -22,7 +20,7 @@ router.post("/create_server", async (req, res) => {
   try {
     user_id = jwt.verify(
       req.headers["x-auth-token"],
-      config.ACCESS_TOKEN
+      process.env.ACCESS_TOKEN
     );
   } catch (e) {
     return res.status(401).json({ message: "Unauthorized", status: 401 });
@@ -64,7 +62,7 @@ router.post("/server_info", async (req, res) => {
   try {
     user_id = jwt.verify(
       req.headers["x-auth-token"],
-      config.ACCESS_TOKEN
+      process.env.ACCESS_TOKEN
     );
   } catch (e) {
     return res.status(401).json({ message: "Unauthorized", status: 401 });
@@ -166,7 +164,7 @@ router.post("/leave_server", async (req, res) => {
   try {
     user_id = jwt.verify(
       req.headers["x-auth-token"],
-      config.ACCESS_TOKEN
+      process.env.ACCESS_TOKEN
     );
   } catch (e) {
     return res.status(401).json({ message: "Unauthorized", status: 401 });

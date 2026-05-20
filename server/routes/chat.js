@@ -1,5 +1,3 @@
-import config from "../config/index.js";
-
 import express from "express";
 import jwt from "jsonwebtoken";
 
@@ -7,12 +5,9 @@ import Chat from "../models/Chat.js";
 import Server from "../models/Server.js";
 import User from "../models/User.js";
 import * as cache from "../lib/cache.js";
-import logger from "../lib/winston.js";
 import { getChats } from "../services/chatService.js";
 import { incrementServerUnread } from "../services/unreadService.js";
 import { getIO } from "../socket/runtime.js";
-
-import expressRateLimit from "../middleware/rateLimit.js";
 
 const router = express.Router();
 
@@ -29,14 +24,14 @@ async function shouldSendNotification(userId, preferenceKey) {
 
 function getAuthorizedUser(req, res) {
   try {
-    return jwt.verify(req.headers["x-auth-token"], config.ACCESS_TOKEN);
+    return jwt.verify(req.headers["x-auth-token"], process.env.ACCESS_TOKEN);
   } catch (e) {
     res.status(401).json({ message: "Unauthorized", status: 401 });
     return null;
   }
 }
 
-router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
+router.post("/store_message", async (req, res) => {
   const {
     message,
     server_id,
@@ -177,7 +172,7 @@ router.post("/get_messages", async (req, res) => {
     await cache.setJson(cacheKey, { chats });
     return res.json({ chats });
   } catch (error) {
-    logger.error(`Error retrieving chats: ${error.message}`);
+    console.error("Error retrieving chats:", error);
     res.status(500).json({ error: "Failed to retrieve chats." });
   }
 });
@@ -233,7 +228,7 @@ router.post("/edit_server_message", async (req, res) => {
 
     res.status(200).json({ status: 200, message: "Message updated" });
   } catch (error) {
-    logger.error(`Error editing message: ${error.message}`);
+    console.error("Error editing message:", error);
     res.status(500).json({ status: 500, message: "Failed to edit message" });
   }
 });
@@ -291,7 +286,7 @@ router.post("/delete_server_message", async (req, res) => {
 
     res.status(200).json({ status: 200, message: "Message deleted" });
   } catch (error) {
-    logger.error(`Error deleting message: ${error.message}`);
+    console.error("Error deleting message:", error);
     res.status(500).json({ status: 500, message: "Failed to delete message" });
   }
 });

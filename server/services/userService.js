@@ -1,6 +1,5 @@
-import config from "../config/index.js";
-
 import User from "../models/User.js";
+import { OTP_TTL_MS } from "../config/constants.js";
 import { sendMail } from "./email.js";
 
 export async function isUsernameAvailable(username) {
@@ -39,13 +38,13 @@ export function signup(email, username, password, dob) {
     const currentTimestamp = data[0].verification?.[0]?.timestamp ?? 0;
     const currentOtp = data[0].verification?.[0]?.code;
 
-    if (data[0].username !== username && Date.now() - currentTimestamp < config.OTP_TTL_MS) {
+    if (data[0].username !== username && Date.now() - currentTimestamp < OTP_TTL_MS) {
       return { message: "not_TLE", otp: currentOtp };
     }
-    if (data[0].username === username && Date.now() - currentTimestamp < config.OTP_TTL_MS) {
+    if (data[0].username === username && Date.now() - currentTimestamp < OTP_TTL_MS) {
       return { message: "not_TLE_2", otp: currentOtp, tag: data[0].tag };
     }
-    if (data[0].username === username && Date.now() - currentTimestamp > config.OTP_TTL_MS) {
+    if (data[0].username === username && Date.now() - currentTimestamp > OTP_TTL_MS) {
       return { message: "TLE", tag: data[0].tag };
     }
     return { message: "TLE_2" };

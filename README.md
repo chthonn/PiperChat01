@@ -29,191 +29,251 @@ PiperChat is a Discord-style chat app with:
 - Email OTP verification
 - Profile updates (display name + avatar) with Supabase storage
 - Optional Redis caching (Upstash supported)
-- Structured logging with Winston and optional Logtail integration
 
-## Project structure
+---
 
-```text
-PiperChat01/
-  frontend/
-    src/
-    package.json
-    .env.example
-
-  server/
-    src/
-      config/
-      lib/
-      middleware/
-      models/
-      routes/
-      services/
-      socket/
-    scripts/
-    package.json
-    .env.example
-```
+# Project Structure
 
 - `server/` → Express + MongoDB + Socket.IO API (ESM)
 - `frontend/` → Vite + Tailwind UI
 
-## System Architecture
+---
 
-To help contributors understand the data flow, here is the technical visualization of how PiperChat components interact:
+# System Architecture
 
 ```mermaid
 graph TD
-    %% User and Frontend
     User((User)) -->|Interacts| UI[Vite + React Frontend]
-    
-    %% Connection Layer
+
     UI <-->|Real-time Events| Socket[Socket.io Layer]
     UI -->|HTTP Requests| API[Express API]
 
-    %% Backend Logic
     subgraph "Server Logic (Node.js)"
         API
         Socket
         Auth[JWT Authentication]
         Email[Gmail OAuth2 Email Service]
-        Logger[Winston + Logtail]
     end
 
-    %% Database Layer
     Socket <-->|Caching/Presence| Redis[(Redis)]
     API -->|Chat History & Users| Mongo[(MongoDB)]
     Email -->|Send OTP via Gmail| GoogleOAuth[(Google OAuth2 API)]
 
-    %% Styling
     style UI fill:#9b5de5,stroke:#333,stroke-width:2px,color:#fff
     style Redis fill:#FF4438,color:#fff
     style Mongo fill:#47A248,color:#fff
     style GoogleOAuth fill:#4285F4,stroke:#333,stroke-width:2px,color:#fff
 ```
 
-## Quick start
+---
 
-### 1) Install dependencies
+# Quick Start
+
+## 1) Install Dependencies
 
 ```bash
 cd server && npm install
 cd ../frontend && npm install
 ```
 
-### 2) Environment variables
+---
 
-- Copy `server/.env.example` → `server/.env`
-- Copy `frontend/.env.example` → `frontend/.env`
+## 2) Environment Variables
 
-### 3) Run the apps
+- Copy `PiperChat01/.env.example` → `PiperChat01/.env`
+- Copy `PiperChat01/frontend/.env.example` → `PiperChat01/frontend/.env`
+
+---
+
+## 3) Run the Applications
+
+### Backend
 
 ```bash
-cd server && npm run dev
+cd server
+npm start
 ```
-
-```bash
-cd frontend && npm run dev
-```
-
-Frontend runs on `http://localhost:5173`  
-Server runs on `http://localhost:2000`
-
-API base URL:
-
-```text
-http://localhost:2000/api/v1
-```
-
-## Environment variables
-
-### Server (`server/.env`)
-
-| Key | Required | Notes |
-| ---------------------------------------------------------------- | -------: | -------------------------------------- |
-| `MONGO_URI` | ✅ | MongoDB connection string |
-| `ACCESS_TOKEN` | ✅ | JWT secret |
-| `PORT` | ❌ | Default `2000` |
-| `NODE_ENV` | ❌ | `development` or `production` |
-| `DEFAULT_PROFILE_PIC` | ❌ | Used on signup |
-| `FRONTEND_ORIGINS` | ❌ | Comma-separated CORS whitelist |
-| `MAIL_TRANSPORT` | ❌ | `auto`, `console`, `gmail_api`, `password`, or `smtp` |
-| `MAIL_USER` | ❌ | Sender email address |
-| `MAIL_PASS` | ❌ | Gmail App Password |
-| `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET` / `OAUTH_REFRESH_TOKEN` | ❌ | OAuth2 email sending |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | ❌ | SMTP configuration |
-| `REDIS_URL` | ❌ | Upstash URL supported (`rediss://...`) |
-| `REDIS_CACHE_TTL_SECONDS` | ❌ | Default `30` |
-| `UPSTASH_REDIS_URL` / `UPSTASH_REDIS_TLS_URL` | ❌ | Upstash Redis aliases |
-| `OTP_TTL_MS` | ❌ | OTP expiry duration |
-| `LOGTAIL_SOURCE_TOKEN` | ⚠️ | Required in production for Logtail logging |
-| `LOGTAIL_INGESTING_HOST` | ⚠️ | Required in production for Logtail logging |
-| `DICEBEAR_API` | ❌ | DiceBear avatar API URL |
-| `DICEBEAR_STYLE` | ❌ | DiceBear avatar style |
-| `SMTP_SECURE` | ❌ | Enables secure SMTP connection |
-| `REDIS_HOST` | ❌ | Redis host fallback |
-| `REDIS_PORT` | ❌ | Redis port fallback |
-| `RATE_LIMIT_WINDOW_MS` | ❌ | Express rate-limit time window |
-
-### Frontend (`frontend/.env`)
-
-| Key | Required | Notes |
-| ----------------------------- | -------: | -------------------------------------- |
-| `VITE_URL` | ✅ | Backend URL (`http://localhost:2000`) |
-| `VITE_FRONT_END_URL` | ✅ | Frontend URL (`http://localhost:5173`) |
-| `VITE_SUPABASE_URL` | ❌ | For avatar uploads |
-| `VITE_SUPABASE_ANON_KEY` | ❌ | For avatar uploads |
-| `VITE_SUPABASE_BUCKET` | ❌ | For avatar uploads |
-
-## API Routes
-
-All backend APIs are mounted under:
-
-```text
-/api/v1
-```
-
-## Scripts
-
-### Server
-
-- `npm start` → runs production server
-- `npm run dev` → runs backend with nodemon
-- `npm run test:auth` → auth integration tests
-- `npm run test:auth:unit` → auth unit tests
-- `npm run gmail:oauth-setup` → Gmail OAuth setup helper
 
 ### Frontend
 
-- `npm run dev` → Vite dev server
-- `npm run build` → production build
-- `npm run lint` → ESLint
+```bash
+cd frontend
+npm run dev
+```
 
-## Logging
+Frontend runs on:
 
-The backend uses Winston for structured logging.
+```txt
+http://localhost:5173
+```
 
-- Development logs are printed to the console
-- Production environments can optionally forward logs to Logtail
-- Logtail requires:
-  - `LOGTAIL_SOURCE_TOKEN`
-  - `LOGTAIL_INGESTING_HOST`
+Backend runs on:
 
-## CI checks
+```txt
+http://localhost:2000
+```
 
-This repository uses GitHub Actions to run automated checks on every pull
-request and every push to `main`.
+---
 
-The workflow lives at `.github/workflows/ci.yml` and currently runs:
+# Environment Variables
+
+## Server (`PiperChat01/.env`)
+
+| Key                                                              | Required | Notes                                  |
+| ---------------------------------------------------------------- | -------: | -------------------------------------- |
+| `MONGO_URI`                                                      |       ✅ | MongoDB connection string              |
+| `ACCESS_TOKEN`                                                   |       ✅ | JWT secret                             |
+| `PORT`                                                           |       ❌ | Default `2000`                         |
+| `default_profile_pic`                                            |       ✅ | Used on signup                         |
+| `MAIL_USER` / `MAIL_PASS`                                        |       ✅ | Gmail App Password flow                |
+| `OAUTH_CLIENTID` / `OAUTH_CLIENT_SECRET` / `OAUTH_REFRESH_TOKEN` |       ❌ | Optional OAuth2 email sending          |
+| `REDIS_URL`                                                      |       ❌ | Upstash URL supported (`rediss://...`) |
+| `REDIS_CACHE_TTL_SECONDS`                                        |       ❌ | Default `30`                           |
+
+---
+
+## Frontend (`PiperChat01/frontend/.env`)
+
+| Key                           | Required | Notes                                  |
+| ----------------------------- | -------: | -------------------------------------- |
+| `REACT_APP_URL`               |       ✅ | Backend URL (`http://localhost:2000`)  |
+| `REACT_APP_front_end_url`     |       ✅ | Frontend URL (`http://localhost:5173`) |
+| `REACT_APP_SUPABASE_URL`      |       ❌ | For avatar uploads                     |
+| `REACT_APP_SUPABASE_ANON_KEY` |       ❌ | For avatar uploads                     |
+| `REACT_APP_SUPABASE_BUCKET`   |       ❌ | For avatar uploads                     |
+
+---
+
+# Scripts
+
+## Server
+
+```bash
+npm start
+npm test
+```
+
+### Available Commands
+
+| Command | Description |
+| --- | --- |
+| `npm start` | Runs backend using nodemon |
+| `npm test` | Runs backend integration tests |
+
+---
+
+## Frontend
+
+```bash
+npm run dev
+npm run build
+npm run lint
+```
+
+---
+
+# Backend Testing
+
+The backend now includes integration testing support using:
+
+- Vitest
+- Supertest
+- MongoMemoryServer
+
+---
+
+## Running Backend Tests
+
+```bash
+cd server
+npm install
+npm test
+```
+
+---
+
+## Testing Features
+
+### Current Integration Coverage
+
+- Authentication signup flow
+- OTP verification flow
+- Signin flow
+- Friend request send flow
+- Friend request accept flow
+- Friend request ignore flow
+
+---
+
+## Testing Architecture
+
+### Isolated Database
+
+Tests run using:
+
+```txt
+MongoMemoryServer
+```
+
+This means:
+
+- No production MongoDB Atlas database is used
+- No external database credentials are required
+- Each test suite runs in isolation
+- Database state is automatically cleaned after tests
+
+---
+
+### Mocked External Services
+
+External email services are mocked during tests.
+
+This ensures:
+
+- No real emails are sent
+- Faster test execution
+- Deterministic OTP verification
+- Stable CI/CD behavior
+
+---
+
+## Test Structure
+
+```txt
+server/tests/
+├── auth.test.js
+├── friend.test.js
+├── mocks.js
+└── setup.js
+```
+
+---
+
+# CI Checks
+
+This repository uses GitHub Actions to run automated checks on every pull request and push to `main`.
+
+Current CI checks include:
 
 - Frontend dependency install with `npm ci`
 - Frontend linting with `npm run lint`
 - Frontend production build with `npm run build`
 - Backend dependency install with `npm ci`
 
-These checks help contributors catch broken builds, lint errors, and dependency
-issues before maintainers review the pull request.
+Future backend CI can additionally run:
 
-To run the same checks locally:
+```bash
+cd server
+npm test
+```
+
+to validate integration test coverage automatically.
+
+---
+
+# Local CI Validation
+
+## Frontend
 
 ```bash
 cd frontend
@@ -222,17 +282,12 @@ npm run lint
 npm run build
 ```
 
+---
+
+## Backend
+
 ```bash
 cd server
 npm ci
-npm run test:auth
-npm run test:auth:unit
+npm test
 ```
-
-## Deployment notes
-
-- Configure `FRONTEND_ORIGINS` with deployed frontend URLs
-- Set `NODE_ENV=production`
-- Use a production MongoDB connection string
-- Configure Logtail variables if production logging is needed
-- Prefer `MAIL_TRANSPORT=gmail_api` for production deployments

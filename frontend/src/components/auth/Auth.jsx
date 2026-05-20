@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import Loading from "../loading/Loading";
-import { API_BASE_URL } from "../../config";
 
 const Auth = () => {
   const location = useLocation();
   const [auth_check, setauth_check] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem("token"));
 
-  const url = API_BASE_URL;
+  const url = import.meta.env.VITE_URL;
 
   const private_routes = useCallback(async () => {
     if (!url || !token) {
@@ -17,7 +16,7 @@ const Auth = () => {
     }
 
     try {
-      const res = await fetch(`${url}/auth/verify_route`, {
+      const res = await fetch(`${url}/verify_route`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

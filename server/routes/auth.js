@@ -1,12 +1,10 @@
-import config from "../config/index.js";
-
 import crypto from "crypto";
 import express from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 import { buildAuthUserJwtPayload } from "../lib/authJwtPayload.js";
-import logger from "../lib/winston.js";
+import { OTP_TTL_MS } from "../config/constants.js";
 import { authToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 import { generateOTP, sendMail } from "../services/email.js";
@@ -15,8 +13,6 @@ import {
   signup,
   updatingCreds,
 } from "../services/userService.js";
-
-import expressRateLimit from "../middleware/rateLimit.js";
 
 const router = express.Router();
 
@@ -54,11 +50,11 @@ function generateAvatar(username) {
   try {
     const seed = `${username || "user"}-${Date.now()}`;
 
-    return `${config.DICEBEAR_API}/${config.DICEBEAR_STYLE}/svg?seed=${encodeURIComponent(seed)}`;
+    return `${process.env.DICEBEAR_API}/${process.env.DICEBEAR_STYLE}/svg?seed=${encodeURIComponent(seed)}`;
   } catch (error) {
-    logger.error(`Avatar generation error: ${error.message}`);
+    console.error("Avatar generation error:", error.message);
 
-    return config.DEFAULT_PROFILE_PIC;
+    return process.env.DEFAULT_PROFILE_PIC;
   }
 }
 
@@ -66,7 +62,7 @@ router.post("/verify_route", authToken, (req, res) => {
   res.status(201).json({ message: "authorized", status: 201 });
 });
 
-router.post("/signup", expressRateLimit("auth"), async (req, res) => {
+router.post("/signup", async (req, res) => {
   const { email, username, password, dob } = req.body;
   const authorized = false;
 
@@ -182,7 +178,7 @@ router.post("/signup", expressRateLimit("auth"), async (req, res) => {
   }
 });
 
-router.post("/verify", expressRateLimit("otp"), async (req, res) => {
+router.post("/verify", async (req, res) => {
   const { email } = req.body;
   const otpValue = String(req.body.otp_value || "").trim();
 
@@ -196,7 +192,7 @@ router.post("/verify", expressRateLimit("otp"), async (req, res) => {
     const username = user.username;
     const currentOtp = user.verification?.[0]?.code;
 
-    if (Date.now() - currentTimestamp < config.OTP_TTL_MS) {
+    if (Date.now() - currentTimestamp < OTP_TTL_MS) {
       if (otpValue === currentOtp) {
         await User.updateOne({ email }, { $set: { authorized: true } });
         return res.status(201).json({
@@ -223,7 +219,7 @@ router.post("/verify", expressRateLimit("otp"), async (req, res) => {
   }
 });
 
-router.post("/resend_otp", expressRateLimit("otp"), async (req, res) => {
+router.post("/resend_otp", async (req, res) => {
   const { email } = req.body;
 
   try {
@@ -252,7 +248,7 @@ router.post("/resend_otp", expressRateLimit("otp"), async (req, res) => {
   }
 });
 
-router.post("/signin", expressRateLimit("auth"), async (req, res) => {
+router.post("/signin", async (req, res) => {
   try {
     const email = req.body.email;
     const plainPassword = req.body.password;
@@ -298,7 +294,7 @@ router.post("/signin", expressRateLimit("auth"), async (req, res) => {
 
     const token = jwt.sign(
       buildAuthUserJwtPayload(user),
-      config.ACCESS_TOKEN,
+      process.env.ACCESS_TOKEN,
     );
     return res
       .status(201)

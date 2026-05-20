@@ -1,5 +1,3 @@
-import config from "../config/index.js";
-
 import express from "express";
 import jwt from "jsonwebtoken";
 
@@ -24,7 +22,7 @@ async function shouldSendNotification(userId, preferenceKey) {
 
 function getAuthorizedUser(req, res) {
   try {
-    return jwt.verify(req.headers["x-auth-token"], config.ACCESS_TOKEN);
+    return jwt.verify(req.headers["x-auth-token"], process.env.ACCESS_TOKEN);
   } catch (e) {
     res.status(401).json({ message: "Unauthorized", status: 401 });
     return null;

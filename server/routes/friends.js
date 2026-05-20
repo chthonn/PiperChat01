@@ -1,9 +1,6 @@
-import config from "../config/index.js";
-
 import express from "express";
 import jwt from "jsonwebtoken";
 
-import logger from "../lib/winston.js";
 import User from "../models/User.js";
 import {
   addFriend,
@@ -27,7 +24,7 @@ router.post("/add_friend", async (req, res) => {
   try {
     user_id = jwt.verify(
       req.headers["x-auth-token"],
-      config.ACCESS_TOKEN
+      process.env.ACCESS_TOKEN
     );
   } catch (e) {
     return res.status(401).json({ message: "Unauthorized", status: 401 });
@@ -146,7 +143,7 @@ router.get("/user_relations", async (req, res) => {
   try {
     const user_id = jwt.verify(
       req.headers["x-auth-token"],
-      config.ACCESS_TOKEN
+      process.env.ACCESS_TOKEN
     );
     const result = await User.findOne({ _id: user_id.id }).lean();
     if (!result) {
@@ -159,7 +156,7 @@ router.get("/user_relations", async (req, res) => {
       servers: result.servers || [],
     });
   } catch (err) {
-    logger.error(`Error fetching user relations: ${err.message}`);
+    console.error("Error fetching user relations:", err);
     res.status(500).json({ message: "Something went wrong", status: 500 });
   }
 });
@@ -173,7 +170,7 @@ router.post("/process_req", async (req, res) => {
     try {
       user_id = jwt.verify(
         req.headers["x-auth-token"],
-        config.ACCESS_TOKEN
+        process.env.ACCESS_TOKEN
       );
     } catch (e) {
       return res.status(401).json({ message: "Unauthorized", status: 401 });

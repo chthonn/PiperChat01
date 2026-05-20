@@ -27,7 +27,7 @@ function DirectMessage() {
       return;
     }
 
-    const res = await fetch(`${url}/direct-messages/get_direct_messages`, {
+    const res = await fetch(`${url}/get_direct_messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -45,7 +45,7 @@ function DirectMessage() {
     loadMessages();
     if (activeFriend) {
       dispatch(clear_dm_unread({ friend_id: activeFriend.id }));
-      fetch(`${url}/notifications/mark_direct_messages_read`, {
+      fetch(`${url}/mark_direct_messages_read`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -167,7 +167,7 @@ function DirectMessage() {
     isTypingRef.current = false;
     socket.emit("dm_stop_typing", { to: activeFriend.id });
 
-    const res = await fetch(`${url}/direct-messages/send_direct_message`, {
+    const res = await fetch(`${url}/send_direct_message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -190,7 +190,7 @@ function DirectMessage() {
   };
 
   const editMessage = async (message) => {
-    const res = await fetch(`${url}/direct-messages/edit_direct_message`, {
+    const res = await fetch(`${url}/edit_direct_message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -219,7 +219,7 @@ function DirectMessage() {
   };
 
   const deleteMessage = async (message) => {
-    const res = await fetch(`${url}/direct-messages/delete_direct_message`, {
+    const res = await fetch(`${url}/delete_direct_message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
