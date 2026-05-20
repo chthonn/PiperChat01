@@ -4,6 +4,7 @@ import {
   getMailUser,
   hasGmailOAuthCredentials,
 } from "../lib/gmailOAuth.js";
+import logger from "../lib/winston.js";
 
 function buildRawMessage({ from, to, subject, text, html }) {
   const boundary = `piperchat_${Date.now()}`;
@@ -110,7 +111,7 @@ export async function sendOtpViaGmailApi(otp, to, name) {
     });
     return { ok: true, mode: "gmail_api", messageId: result.data.id };
   } catch (error) {
-    console.error("[email:gmail_api] Send failed:", error.message);
+    logger.error(`[email:gmail_api] Send failed: ${error.message}`);
     return { ok: false, reason: "send_failed", mode: "gmail_api", error: error.message };
   }
 }
