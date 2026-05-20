@@ -37,7 +37,7 @@ jest.unstable_mockModule("../src/middleware/auth.js", () => ({
   authToken: (_req, _res, next) => next(),
 }));
 
-jest.unstable_mockModule("../src/config/constants.js", () => ({
+jest.unstable_mockModule("../src/config/index.js", () => ({
   OTP_TTL_MS: 300000,
 }));
 
