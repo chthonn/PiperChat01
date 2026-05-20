@@ -97,7 +97,7 @@ function MainDashboard({ user_relations }) {
     setalert({ ...alert, style: "none" });
 
     try {
-      const res = await fetch(`${url}/process_req`, {
+      const res = await fetch(`${url}/friends/process_req`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -220,7 +220,7 @@ function MainDashboard({ user_relations }) {
   const add_friend = async (e) => {
     e.preventDefault();
 
-    const res = await fetch(`${url}/add_friend`, {
+    const res = await fetch(`${url}/friends/add_friend`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

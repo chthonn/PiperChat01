@@ -1,9 +1,13 @@
 /**
  * Auth integration checks (MongoDB + HTTP).
  * Run from repo: node server/scripts/run-auth-integration.mjs
- * Uses MONGO_URI from the environment or PiperChat01/.env (via config/env.js).
- * If MONGO_URI is still unset, defaults to mongodb://127.0.0.1:27017/piperchat_auth_itest.
+ * Uses environment variables loaded via dotenv/config.
+ * Falls back to a local MongoDB instance if MONGO_URI is unset.
  */
+import "dotenv/config";
+
+import config from "../src/config/index.js";
+
 import express from "express";
 import http from "http";
 import jwt from "jsonwebtoken";
@@ -13,28 +17,27 @@ import mongoose from "mongoose";
 const BCRYPT_RE = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
 
 function ensureTestEnv() {
-  if (!process.env.MONGO_URI) {
-    process.env.MONGO_URI =
+  if (!config.MONGO_URI) {
+    config.MONGO_URI =
       "mongodb://127.0.0.1:27017/piperchat_auth_itest";
   }
-  if (!process.env.ACCESS_TOKEN) {
-    process.env.ACCESS_TOKEN =
+  if (!config.ACCESS_TOKEN) {
+    config.ACCESS_TOKEN =
       "integration-test-jwt-secret-do-not-use-in-production-32chars-min";
   }
-  if (!process.env.default_profile_pic) {
-    process.env.default_profile_pic = "https://example.com/default.png";
+  if (!config.DEFAULT_PROFILE_PIC) {
+    config.DEFAULT_PROFILE_PIC = "https://example.com/default.png";
   }
 }
 
-await import("../config/env.js");
 ensureTestEnv();
 // Avoid live SMTP during automated auth tests (signup still persists user).
-process.env.MAIL_TRANSPORT = "console";
+config.MAIL_TRANSPORT = "console";
 
-const { connect } = await import("../config/db.js");
-const User = (await import("../models/User.js")).default;
-const authRoutes = (await import("../routes/auth.js")).default;
-const profileRoutes = (await import("../routes/profile.js")).default;
+const { connectDatabase } = await import("../src/config/db.js");
+const User = (await import("../src/models/User.js")).default;
+const authRoutes = (await import("../src/routes/auth.js")).default;
+const profileRoutes = (await import("../src/routes/profile.js")).default;
 
 function decodeJwtPayload(token) {
   const [, payload] = token.split(".");
@@ -66,7 +69,7 @@ async function request(baseUrl, path, options = {}) {
 }
 
 async function main() {
-  await connect();
+  await connectDatabase();
 
   const emailPlain = `auth-itest-plain-${Date.now()}@example.com`;
   const emailNew = `auth-itest-new-${Date.now()}@example.com`;
@@ -92,7 +95,7 @@ async function main() {
   const app = express();
   app.use(express.json());
   app.use("/", authRoutes);
-  app.use("/", profileRoutes);
+  app.use("/profile", profileRoutes);
 
   const server = http.createServer(app);
   const baseUrl = await new Promise((resolve, reject) => {
@@ -112,7 +115,15 @@ async function main() {
     assert(r.json.token, "legacy signin missing token");
 
     const payload = decodeJwtPayload(r.json.token);
-    const required = ["id", "email", "username", "tag", "profile_pic"];
+    const required = [
+      "id",
+      "email",
+      "username",
+      "tag",
+      "profile_pic",
+      "notification_preferences",
+    ];
+    const jwtAllowedExtra = new Set(["iat", "exp"]);
     for (const k of required) {
       assert(k in payload, `JWT missing field: ${k}`);
     }
@@ -127,9 +138,19 @@ async function main() {
       payload.profile_pic === "https://example.com/legacy.png",
       "JWT profile_pic mismatch"
     );
+    const prefs = payload.notification_preferences;
+    assert(prefs && typeof prefs === "object", "JWT notification_preferences missing");
+    for (const key of [
+      "direct_messages",
+      "friend_requests",
+      "server_messages",
+      "server_invites",
+    ]) {
+      assert(prefs[key] === true, `JWT notification_preferences.${key} should default true`);
+    }
     const extra = Object.keys(payload).filter((k) => !required.includes(k));
     assert(
-      extra.every((k) => k === "iat" || k === "exp"),
+      extra.every((k) => jwtAllowedExtra.has(k)),
       `Unexpected JWT keys: ${extra.join(",")}`
     );
     assert(!("password" in payload), "JWT must not contain password");

@@ -7,10 +7,11 @@ import { clear_channel_unread } from "../../../store/unreadSlice";
 import { Input } from "../../ui/input";
 import { Button } from "../../ui/button";
 import { resolveProfilePic, handleImageError } from "../../../shared/imageFallbacks";
+import { API_BASE_URL } from "../../../config";
 
 function ValidChat() {
   const dispatch = useDispatch();
-  const url = import.meta.env.VITE_URL;
+  const url = API_BASE_URL;
   const { server_id } = useParams();
 
   // channel creds from redux
@@ -48,7 +49,7 @@ function ValidChat() {
   };
 
   const store_message = async (chat_message, timestamp) => {
-    const res = await fetch(`${url}/store_message`, {
+    const res = await fetch(`${url}/chat/store_message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -79,7 +80,7 @@ function ValidChat() {
       setError(null);
 
       dispatch(clear_channel_unread({ server_id, channel_id }));
-      fetch(`${url}/mark_channel_read`, {
+      fetch(`${url}/notifications/mark_channel_read`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -96,7 +97,7 @@ function ValidChat() {
     try {
       setIsLoading(true);
       setError(null);
-      const res = await fetch(`${url}/get_messages`, {
+      const res = await fetch(`${url}/chat/get_messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -122,7 +123,7 @@ function ValidChat() {
   };
 
   const editMessage = async (message) => {
-    const res = await fetch(`${url}/edit_server_message`, {
+    const res = await fetch(`${url}/chat/edit_server_message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -151,7 +152,7 @@ function ValidChat() {
   };
 
   const deleteMessage = async (message) => {
-    const res = await fetch(`${url}/delete_server_message`, {
+    const res = await fetch(`${url}/chat/delete_server_message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

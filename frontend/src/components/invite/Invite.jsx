@@ -5,6 +5,7 @@ import invalid_link_image from "../../images/invalid_invite.svg";
 import jwt from "jwt-decode";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
+import { API_BASE_URL } from "../../config";
 
 function Invite() {
   const navigate = useNavigate();
@@ -13,7 +14,7 @@ function Invite() {
   const { username, tag, profile_pic, id } = user_creds || {};
 
   const { invite_link } = useParams();
-  const url = import.meta.env.VITE_URL;
+  const url = API_BASE_URL;
   const [invite_details, setinvite_details] = useState(null);
   const [invalid_invite_link, setinvalid_invite_link] = useState(null);
 
@@ -31,7 +32,7 @@ const [already_member, setAlreadyMember] = useState(false);   // 403 from backen
     setAlreadyMember(false);
 
     try {
-      const res = await fetch(`${url}/accept_invite`, {
+      const res = await fetch(`${url}/invites/accept_invite`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -59,7 +60,7 @@ const [already_member, setAlreadyMember] = useState(false);   // 403 from backen
   };
 
   const invite_link_info = useCallback(async () => {
-    const res = await fetch(`${url}/invite_link_info`, {
+    const res = await fetch(`${url}/invites/invite_link_info`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
