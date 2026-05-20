@@ -8,7 +8,7 @@ const mockUserFindOne = jest.fn();
 const mockUserUpdateOne = jest.fn();
 const mockUserSave = jest.fn();
 
-jest.unstable_mockModule("../models/User.js", () => {
+jest.unstable_mockModule("../src/models/User.js", () => {
   function MockUser(data) { Object.assign(this, data); }
   MockUser.findOne = (q) => ({ lean: () => mockUserFindOne(q) });
   MockUser.updateOne = mockUserUpdateOne;
@@ -20,7 +20,7 @@ const mockSignup = jest.fn();
 const mockIsUsernameAvailable = jest.fn();
 const mockUpdatingCreds = jest.fn();
 
-jest.unstable_mockModule("../services/userService.js", () => ({
+jest.unstable_mockModule("../src/services/userService.js", () => ({
   signup: mockSignup,
   isUsernameAvailable: mockIsUsernameAvailable,
   updatingCreds: mockUpdatingCreds,
@@ -28,16 +28,16 @@ jest.unstable_mockModule("../services/userService.js", () => ({
 
 const mockSendMail = jest.fn();
 
-jest.unstable_mockModule("../services/email.js", () => ({
+jest.unstable_mockModule("../src/services/email.js", () => ({
   generateOTP: () => "123456",
   sendMail: mockSendMail,
 }));
 
-jest.unstable_mockModule("../middleware/auth.js", () => ({
+jest.unstable_mockModule("../src/middleware/auth.js", () => ({
   authToken: (_req, _res, next) => next(),
 }));
 
-jest.unstable_mockModule("../config/constants.js", () => ({
+jest.unstable_mockModule("../src/config/constants.js", () => ({
   OTP_TTL_MS: 300000,
 }));
 
@@ -47,7 +47,7 @@ let request;
 
 beforeAll(async () => {
   process.env.ACCESS_TOKEN = "test_secret";
-  const { default: authRouter } = await import("../routes/auth.js");
+  const { default: authRouter } = await import("../src/routes/auth.js");
   const app = express();
   app.use(express.json());
   app.use(authRouter);
