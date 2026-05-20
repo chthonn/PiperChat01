@@ -66,7 +66,7 @@ function Navbar2ChatValid({ onNavigate }) {
   };
 
   const create_invite_link = async () => {
-    const res = await fetch(`${url}/create_invite_link`, {
+    const res = await fetch(`${url}/invites/create_invite_link`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -87,7 +87,7 @@ function Navbar2ChatValid({ onNavigate }) {
   };
 
   const delete_server = async () => {
-    const res = await fetch(`${url}/delete_server`, {
+    const res = await fetch(`${url}/servers/delete_server`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -105,7 +105,7 @@ function Navbar2ChatValid({ onNavigate }) {
   };
 
   const leave_server = async () => {
-    const res = await fetch(`${url}/leave_server`, {
+    const res = await fetch(`${url}/servers/leave_server`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -131,7 +131,7 @@ function Navbar2ChatValid({ onNavigate }) {
   }
 
   const server_info = useCallback(async () => {
-    const res = await fetch(`${url}/server_info`, {
+    const res = await fetch(`${url}/servers/server_info`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -173,7 +173,7 @@ function Navbar2ChatValid({ onNavigate }) {
   }, [Navigate, activeChannelId, dispatch, server_id, url]);
 
   const create_category = async () => {
-    const res = await fetch(`${url}/add_new_category`, {
+    const res = await fetch(`${url}/servers/add_new_category`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

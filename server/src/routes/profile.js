@@ -1,3 +1,5 @@
+import config from "../config/index.js";
+
 import express from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -96,7 +98,7 @@ async function propagateUserIdentity({ userId, username, profile_pic }) {
   await Promise.all(arrayUpdates);
 }
 
-router.patch("/profile", authToken, async (req, res) => {
+router.patch("/", authToken, async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -154,7 +156,7 @@ router.patch("/profile", authToken, async (req, res) => {
 
     const token = jwt.sign(
       buildAuthUserJwtPayload(updated),
-      process.env.ACCESS_TOKEN
+      config.ACCESS_TOKEN
     );
 
     return res.status(200).json({
@@ -173,7 +175,7 @@ router.patch("/profile", authToken, async (req, res) => {
   }
 });
 
-router.patch("/profile/password", authToken, async (req, res) => {
+router.patch("/password", authToken, async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -221,7 +223,7 @@ router.patch("/profile/password", authToken, async (req, res) => {
   }
 });
 
-router.patch("/profile/notifications", authToken, async (req, res) => {
+router.patch("/notifications", authToken, async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -252,7 +254,7 @@ router.patch("/profile/notifications", authToken, async (req, res) => {
 
     const token = jwt.sign(
       buildAuthUserJwtPayload(updated),
-      process.env.ACCESS_TOKEN,
+      config.ACCESS_TOKEN,
     );
 
     return res.status(200).json({

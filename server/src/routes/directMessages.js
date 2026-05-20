@@ -1,3 +1,5 @@
+import config from "../config/index.js";
+
 import express from "express";
 import jwt from "jsonwebtoken";
 
@@ -23,7 +25,7 @@ async function shouldSendNotification(userId, preferenceKey) {
 
 function getAuthorizedUser(req, res) {
   try {
-    return jwt.verify(req.headers["x-auth-token"], process.env.ACCESS_TOKEN);
+    return jwt.verify(req.headers["x-auth-token"], config.ACCESS_TOKEN);
   } catch (e) {
     res.status(401).json({ message: "Unauthorized", status: 401 });
     return null;
@@ -32,6 +34,10 @@ function getAuthorizedUser(req, res) {
 
 function getThreadParticipants(userId, friendId) {
   return [userId, friendId].sort();
+}
+
+function toClientTimestamp(timestamp) {
+  return new Date(timestamp).getTime();
 }
 
 router.post("/get_direct_messages", async (req, res) => {
@@ -82,7 +88,7 @@ router.post("/get_direct_messages", async (req, res) => {
       sender_tag: m.sender_tag,
       sender_pic: m.sender_pic,
       content: m.content,
-      timestamp: m.timestamp,
+      timestamp: toClientTimestamp(m.timestamp),
     }));
 
     if (!cursor) {
@@ -158,7 +164,7 @@ router.post("/send_direct_message", async (req, res) => {
         sender_tag: currentUser.tag,
         sender_pic: currentUser.profile_pic,
         content: newMessage.content,
-        timestamp: newMessage.timestamp,
+        timestamp: toClientTimestamp(newMessage.timestamp),
       };
 
       io.to(friendUserId).emit("direct_message_received", socketMessage);
@@ -166,10 +172,16 @@ router.post("/send_direct_message", async (req, res) => {
       socketMessage.friend_id = friendUserId;
       io.to(currentUserId).emit("direct_message_received", socketMessage);
 
-      io.to(friendUserId).emit("direct_message_notification", {
-        friend_id: currentUserId,
-        sender_name: currentUser.username,
-      });
+      const shouldNotify = await shouldSendNotification(
+        friendUserId,
+        "direct_messages",
+      );
+      if (shouldNotify) {
+        io.to(friendUserId).emit("direct_message_notification", {
+          friend_id: currentUserId,
+          sender_name: currentUser.username,
+        });
+      }
     }
 
     return res.status(200).json({
@@ -181,10 +193,9 @@ router.post("/send_direct_message", async (req, res) => {
         sender_tag: currentUser.tag,
         sender_pic: currentUser.profile_pic,
         content: newMessage.content,
-        timestamp: newMessage.timestamp,
+        timestamp: toClientTimestamp(newMessage.timestamp),
       },
     });
-
   } catch (error) {
     console.error("Error sending DM:", error);
     return res.status(500).json({ message: "Server error", status: 500 });

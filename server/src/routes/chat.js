@@ -1,3 +1,5 @@
+import config from "../config/index.js";
+
 import express from "express";
 import jwt from "jsonwebtoken";
 
@@ -6,8 +8,11 @@ import Server from "../models/Server.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 import * as cache from "../lib/cache.js";
+import logger from "../lib/winston.js";
 import { incrementServerUnread } from "../services/unreadService.js";
 import { getIO } from "../socket/runtime.js";
+
+import expressRateLimit from "../middleware/rateLimit.js";
 
 const router = express.Router();
 
@@ -24,14 +29,14 @@ async function shouldSendNotification(userId, preferenceKey) {
 
 function getAuthorizedUser(req, res) {
   try {
-    return jwt.verify(req.headers["x-auth-token"], process.env.ACCESS_TOKEN);
+    return jwt.verify(req.headers["x-auth-token"], config.ACCESS_TOKEN);
   } catch (e) {
     res.status(401).json({ message: "Unauthorized", status: 401 });
     return null;
   }
 }
 
-router.post("/store_message", async (req, res) => {
+router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
   const {
     message,
     server_id,
@@ -64,7 +69,10 @@ router.post("/store_message", async (req, res) => {
     );
     for (const recipient of recipients) {
       await incrementServerUnread(recipient.user_id, server_id, channel_id);
-      const shouldNotify = await shouldSendNotification(recipient.user_id, "server_messages");
+      const shouldNotify = await shouldSendNotification(
+        recipient.user_id,
+        "server_messages",
+      );
       if (shouldNotify) {
         io.to(recipient.user_id).emit("server_messaage_notification", {
           server_id,
@@ -92,7 +100,7 @@ router.post("/store_message", async (req, res) => {
     await Chat.updateOne(
       { server_id, "channels.channel_id": channel_id },
       { $setOnInsert: { server_id, channels: [{ channel_id, channel_name }] } },
-      { upsert: true }
+      { upsert: true },
     );
 
     await cache.del(`chat:${server_id}:${channel_id}`);
@@ -100,7 +108,10 @@ router.post("/store_message", async (req, res) => {
 
     const io = getIO();
     if (io) {
-      io.to(channel_id).emit("server_message_received", chatMessage);
+      io.to(`channel:${channel_id}`).emit(
+        "server_message_received",
+        chatMessage,
+      );
     }
 
     return res.json({ status: 200, message: chatMessage });
@@ -146,7 +157,7 @@ router.post("/get_messages", async (req, res) => {
       sender_name: m.sender_name,
       sender_pic: m.sender_pic,
       sender_tag: m.sender_tag,
-      timestamp: String(m.timestamp),
+      timestamp: new Date(m.timestamp).getTime(),
     }));
 
     if (!cursor) {
@@ -155,7 +166,7 @@ router.post("/get_messages", async (req, res) => {
 
     return res.json({ chats });
   } catch (error) {
-    console.error("Error retrieving chats: ", error);
+    logger.error(`Error retrieving chats: ${error.message}`);
     res.status(500).json({ error: "Failed to retrieve chats." });
   }
 });
@@ -195,7 +206,7 @@ router.post("/edit_server_message", async (req, res) => {
 
     res.status(200).json({ status: 200, message: "Message updated" });
   } catch (error) {
-    console.error("Error editing message:", error);
+    logger.error(`Error editing message: ${error.message}`);
     res.status(500).json({ status: 500, message: "Failed to edit message" });
   }
 });
@@ -234,7 +245,7 @@ router.post("/delete_server_message", async (req, res) => {
 
     res.status(200).json({ status: 200, message: "Message is deleted" });
   } catch (error) {
-    console.error("Error deleting message:", error);
+    logger.error(`Error deleting message: ${error.message}`);
     res.status(500).json({ status: 500, message: "Failed to delete message" });
   }
 });
