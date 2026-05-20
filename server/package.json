@@ -2,11 +2,11 @@
   "name": "server",
   "version": "1.0.0",
   "description": "Discord Clone Backend",
-  "main": "index.js",
+  "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/",
     "test:auth:unit": "node scripts/run-auth-jwt-unit.mjs",
     "test:auth": "node scripts/run-auth-integration.mjs",
@@ -19,12 +19,17 @@
   "author": "shunnu",
   "license": "ISC",
   "dependencies": {
+    "@logtail/node": "^0.5.8",
+    "@logtail/winston": "^0.5.8",
     "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.0.2",
     "express": "^4.18.1",
+    "express-rate-limit": "^8.5.2",
     "google-auth-library": "^10.5.0",
     "googleapis": "^171.4.0",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.3.1",
     "nanoid": "^5.1.6",
@@ -32,7 +37,8 @@
     "nodemon": "^3.1.14",
     "redis": "^5.11.0",
     "shortid": "^2.2.16",
-    "socket.io": "^4.5.4"
+    "socket.io": "^4.5.4",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.0.0",

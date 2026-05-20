@@ -177,6 +177,14 @@ function attachSocketHandlers(io) {
       },
     );
 
+    socket.on("dm_typing", ({ to }) => {
+      socket.to(String(to)).emit("dm_typing", { from: socket.data.user_id });
+    });
+
+    socket.on("dm_stop_typing", ({ to }) => {
+      socket.to(String(to)).emit("dm_stop_typing", { from: socket.data.user_id });
+    });
+
     socket.on("disconnect", () => {
       setUserOffline(io, socket.data.user_id, socket.id);
     });

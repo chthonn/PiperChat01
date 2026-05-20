@@ -1,9 +1,11 @@
 import { motion } from "framer-motion";
 
-export default function AuthShell({ children}) {
+export default function AuthShell({ children, mode }) {
+  const isRegister = mode === "register";
+
   return (
     <div
-      className="relative min-h-dvh overflow-hidden"
+      className={`relative overflow-hidden ${isRegister ? "h-dvh" : "min-h-dvh"}`}
       style={{ background: "#0a0a0f" }}
     >
       <div
@@ -62,7 +64,11 @@ export default function AuthShell({ children}) {
         }}
       />
 
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-6xl items-center px-5 py-12">
+      <div
+        className={`relative mx-auto flex w-full max-w-6xl items-center px-5 ${
+          isRegister ? "h-dvh py-8" : "min-h-dvh py-12"
+        }`}
+      >
         <div className="grid w-full items-center gap-12 lg:grid-cols-2 lg:gap-16">
 
           <motion.section
