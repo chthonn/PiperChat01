@@ -30,6 +30,10 @@ function ValidChat() {
   const [editingContent, setEditingContent] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(null);
   const emojiPickerRef = useRef(null);
+
+  useEffect(() => {
+    setShowEmojiPicker(null);
+  }, [channel_id]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -154,7 +158,7 @@ function ValidChat() {
   };
 
   const toggleReaction = async (message, emoji) => {
-    const res = await fetch(`${url}/toggle_reaction`, {
+    const res = await fetch(`${url}/chat/toggle_reaction`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -390,7 +394,7 @@ function ValidChat() {
                     </div>
                   </div>
 
-                  {(elem.reactions && elem.reactions.length > 0) && (
+                  {(Array.isArray(elem.reactions) && elem.reactions.length > 0) && (
                     <div className="mt-1 flex flex-wrap gap-1">
                       {elem.reactions.map((r) => (
                         <button
