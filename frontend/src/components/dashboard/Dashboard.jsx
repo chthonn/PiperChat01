@@ -56,7 +56,7 @@ function Dashboard() {
 
   const user_relations = useCallback(async () => {
     try {
-      const res = await fetch(`${url}/friends/user_relations`, {
+      const res = await fetch(`${url}/user_relations`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

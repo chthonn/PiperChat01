@@ -4,19 +4,21 @@
  *
  * Usage: cd server && npm run gmail:oauth-setup
  */
-import "dotenv/config";
-
-import config from "../src/config/index.js";
-
 import { createServer } from "http";
 import { OAuth2Client } from "google-auth-library";
-import { GMAIL_SEND_SCOPE } from "../src/lib/gmailOAuth.js";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+import { GMAIL_SEND_SCOPE } from "../lib/gmailOAuth.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, "..", "..", ".env") });
 
 const REDIRECT_URI = "http://localhost:53682/oauth2callback";
 
 const clientId =
-  config.OAUTH_CLIENT_ID || "";
-const clientSecret = config.OAUTH_CLIENT_SECRET || "";
+  process.env.OAUTH_CLIENT_ID || process.env.OAUTH_CLIENTID || "";
+const clientSecret = process.env.OAUTH_CLIENT_SECRET || "";
 
 if (!clientId || !clientSecret) {
   console.error("Set OAUTH_CLIENT_ID and OAUTH_CLIENT_SECRET in .env first.");

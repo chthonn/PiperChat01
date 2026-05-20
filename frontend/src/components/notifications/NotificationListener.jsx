@@ -14,7 +14,6 @@ import {
   set_online_users,
   set_user_presence,
 } from "../../store/presenceSlice";
-import { API_BASE_URL } from "../../config";
 
 function NotificationListener() {
   const dispatch = useDispatch();
@@ -23,7 +22,7 @@ function NotificationListener() {
   const notificationPrefs = useSelector((state) => state.user_info.notification_preferences);
   const activeFriend = useSelector((state) => state.direct_message.activeFriend);
   const activeChannelId = useSelector((state) => state.currentPage.page_id);
-  const url = API_BASE_URL;
+  const url = import.meta.env.VITE_URL;
 
   const canReceiveDMs = notificationPrefs?.direct_messages ?? true;
   const canReceiveServerMessages = notificationPrefs?.server_messages ?? true;
@@ -59,7 +58,7 @@ function NotificationListener() {
     socket.on("user_servers_updated", handleUserServersUpdated);
 
     const fetchUnreadSummary = async () => {
-      const res = await fetch(`${url}/notifications/unread_summary`, {
+      const res = await fetch(`${url}/unread_summary`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -94,7 +93,7 @@ function NotificationListener() {
       (prev?.server_messages === false && canReceiveServerMessages);
 
     if (reEnabled) {
-      const res = fetch(`${url}/notifications/unread_summary`, {
+      const res = fetch(`${url}/unread_summary`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -122,7 +121,7 @@ function NotificationListener() {
     const handleDmNotification = ({ friend_id }) => {
       if (activeFriend?.id === friend_id && isDashboard) {
         dispatch(clear_dm_unread({ friend_id }));
-        fetch(`${url}/notifications/mark_direct_messages_read`, {
+        fetch(`${url}/mark_direct_messages_read`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -145,7 +144,7 @@ function NotificationListener() {
         activeChannelId === channel_id
       ) {
         dispatch(clear_channel_unread({ server_id, channel_id }));
-        fetch(`${url}/notifications/mark_channel_read`, {
+        fetch(`${url}/mark_channel_read`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

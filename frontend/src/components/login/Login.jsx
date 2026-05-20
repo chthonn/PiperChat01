@@ -3,7 +3,6 @@ import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import AuthShell from "../auth/AuthShell";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiEye, FiEyeOff } from "react-icons/fi";
-import { API_BASE_URL } from "../../config";
 
 
 function Label({ children }) {
@@ -112,7 +111,7 @@ function Login() {
   const [alert_box, setalert_box] = useState(false);
   const [alert_message, setalert_message] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const url = API_BASE_URL;
+  const url = import.meta.env.VITE_URL;
 
   const canSubmit = useMemo(
     () => user_values.email.trim().length > 0 && user_values.password.length > 0,
@@ -134,7 +133,7 @@ function Login() {
     try {
       setSubmitting(true);
       setalert_box(false);
-      const res = await fetch(`${url}/auth/signin`, {
+      const res = await fetch(`${url}/signin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

@@ -38,8 +38,8 @@ jobs:
       - name: Build frontend
         run: npm run build
         env:
-          VITE_APP_URL: http://localhost:2000
-          VITE_APP_front_end_url: http://localhost:5173
+          REACT_APP_URL: http://localhost:2000
+          REACT_APP_front_end_url: http://localhost:5173
 
   backend:
     name: Backend dependency check
@@ -82,5 +82,5 @@ jobs:
         env:
           MONGO_URI: mongodb://127.0.0.1:27017/piperchat_ci_auth
           ACCESS_TOKEN: ci-test-jwt-secret-do-not-use-in-production-32chars-min
-          DEFAULT_PROFILE_PIC: https://example.com/default.png
+          default_profile_pic: https://example.com/default.png
         run: npm run test:auth

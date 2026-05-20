@@ -1,4 +1,3 @@
-import config from "../config/index.js";
 import jwt from "jsonwebtoken";
 
 export const authToken = async (req, res, next) => {
@@ -7,7 +6,7 @@ export const authToken = async (req, res, next) => {
     if (!authHeader) {
       return res.status(401).json({ message: "No token provided", status: 401 });
     }
-    const decoded = jwt.verify(authHeader, config.ACCESS_TOKEN);
+    const decoded = jwt.verify(authHeader, process.env.ACCESS_TOKEN);
     req.user = decoded;
     next();
   } catch (err) {
