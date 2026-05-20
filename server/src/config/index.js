@@ -32,7 +32,7 @@ const config = {
     "http://localhost:3000,http://localhost:5173"
   )
     .split(",")
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
     .filter(Boolean),
   OTP_TTL_MS,
   UPSTASH_REDIS_URL: process.env.UPSTASH_REDIS_URL,

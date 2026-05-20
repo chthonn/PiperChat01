@@ -8,6 +8,7 @@ import { attachSocketHandlers } from "./socket/index.js";
 import { setIO } from "./socket/runtime.js";
 import { verifyMailTransport } from "./services/email.js";
 
+import { socketCorsOptions } from "./config/cors.js";
 import logger, { logtail } from "./lib/winston.js";
 
 let server;
@@ -23,9 +24,7 @@ let server;
 
     const io = new SocketIOServer(server, {
       pingTimeout: 20000,
-      cors: {
-        origin: config.CORS_WHITELIST,
-      },
+      cors: socketCorsOptions,
     });
     setIO(io);
     attachSocketHandlers(io);
