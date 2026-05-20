@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-
 const chatSchema = new mongoose.Schema({
   server_id: String,
   channels: [
@@ -14,10 +13,15 @@ const chatSchema = new mongoose.Schema({
           sender_pic: String,
           sender_tag: String,
           timestamp: String,
+          reactions: [
+            {
+              emoji: String,
+              users: [String],
+            },
+          ],
         },
       ],
     },
   ],
 });
-
 export default mongoose.model("discord_chats", chatSchema);

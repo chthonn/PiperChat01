@@ -296,4 +296,57 @@ router.post("/delete_server_message", async (req, res) => {
   }
 });
 
+router.post("/toggle_reaction", async (req, res) => {
+  const { server_id, channel_id, timestamp, emoji } = req.body;
+  const user = getAuthorizedUser(req, res);
+  if (!user) return;
+  const userId = user.id;
+
+  try {
+    const chatDoc = await Chat.findOne({
+      server_id,
+      "channels.channel_id": channel_id,
+    });
+    if (!chatDoc) return res.status(404).json({ status: 404 });
+
+    const channel = chatDoc.channels.find((c) => c.channel_id === channel_id);
+    const message = channel?.chat_details.find(
+      (m) => String(m.timestamp) === String(timestamp)
+    );
+    if (!message) return res.status(404).json({ status: 404 });
+
+    if (!message.reactions) message.reactions = [];
+    let reaction = message.reactions.find((r) => r.emoji === emoji);
+
+    if (reaction) {
+      if (reaction.users.includes(userId)) {
+        reaction.users = reaction.users.filter((u) => u !== userId);
+        if (reaction.users.length === 0) {
+          message.reactions = message.reactions.filter((r) => r.emoji !== emoji);
+        }
+      } else {
+        reaction.users.push(userId);
+      }
+    } else {
+      message.reactions.push({ emoji, users: [userId] });
+    }
+
+    chatDoc.markModified("channels");
+    await chatDoc.save();
+    await cache.del(`chat:${server_id}:${channel_id}`);
+
+    const io = getIO();
+    if (io) {
+      io.to(`channel:${channel_id}`).emit("reaction_updated", {
+        timestamp,
+        reactions: message.reactions,
+      });
+    }
+
+    res.json({ status: 200, reactions: message.reactions });
+  } catch (err) {
+    res.status(500).json({ status: 500 });
+  }
+});
+
 export default router;
