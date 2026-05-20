@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { resolveProfilePic, handleImageError } from "../../shared/imageFallbacks";
 import socket from "../socket/Socket";
@@ -16,6 +16,9 @@ function DirectMessage() {
   const [input, setInput] = useState("");
   const [editingTimestamp, setEditingTimestamp] = useState(null);
   const [editingContent, setEditingContent] = useState("");
+  const [friendIsTyping, setFriendIsTyping] = useState(false);
+  const typingTimeoutRef = useRef(null);
+  const isTypingRef = useRef(false);
 
   const url = API_BASE_URL;
 
@@ -24,7 +27,7 @@ function DirectMessage() {
       return;
     }
 
-    const res = await fetch(`${url}/get_direct_messages`, {
+    const res = await fetch(`${url}/direct-messages/get_direct_messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -42,7 +45,7 @@ function DirectMessage() {
     loadMessages();
     if (activeFriend) {
       dispatch(clear_dm_unread({ friend_id: activeFriend.id }));
-      fetch(`${url}/mark_direct_messages_read`, {
+      fetch(`${url}/notifications/mark_direct_messages_read`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -115,23 +118,56 @@ function DirectMessage() {
       );
     };
 
+    const handleTyping = ({ from }) => {
+      if (activeFriend && String(from) === String(activeFriend.id)) {
+        setFriendIsTyping(true);
+      }
+    };
+    const handleStopTyping = ({ from }) => {
+      if (activeFriend && String(from) === String(activeFriend.id)) {
+        setFriendIsTyping(false);
+      }
+    };
+
     socket.on("direct_message_received", handleIncomingMessage);
     socket.on("direct_message_updated", handleUpdatedMessage);
     socket.on("direct_message_deleted", handleDeletedMessage);
+    socket.on("dm_typing", handleTyping);
+    socket.on("dm_stop_typing", handleStopTyping);
     return () => {
       socket.off("direct_message_received", handleIncomingMessage);
       socket.off("direct_message_updated", handleUpdatedMessage);
       socket.off("direct_message_deleted", handleDeletedMessage);
+      socket.off("dm_typing", handleTyping);
+      socket.off("dm_stop_typing", handleStopTyping);
+      setFriendIsTyping(false);
     };
   }, [activeFriend]);
+
+  const handleInputChange = (e) => {
+    setInput(e.target.value);
+    if (!activeFriend) return;
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      socket.emit("dm_typing", { to: activeFriend.id });
+    }
+    clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      socket.emit("dm_stop_typing", { to: activeFriend.id });
+    }, 2000);
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || !activeFriend) return;
 
     const message = input.trim();
     setInput("");
+    clearTimeout(typingTimeoutRef.current);
+    isTypingRef.current = false;
+    socket.emit("dm_stop_typing", { to: activeFriend.id });
 
-    const res = await fetch(`${url}/send_direct_message`, {
+    const res = await fetch(`${url}/direct-messages/send_direct_message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -154,7 +190,7 @@ function DirectMessage() {
   };
 
   const editMessage = async (message) => {
-    const res = await fetch(`${url}/edit_direct_message`, {
+    const res = await fetch(`${url}/direct-messages/edit_direct_message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -183,7 +219,7 @@ function DirectMessage() {
   };
 
   const deleteMessage = async (message) => {
-    const res = await fetch(`${url}/delete_direct_message`, {
+    const res = await fetch(`${url}/direct-messages/delete_direct_message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -344,6 +380,11 @@ function DirectMessage() {
         </div>
       </div>
 
+      {friendIsTyping && (
+        <div className="px-4 pb-1 text-xs text-white/40 italic">
+          {activeFriend.username} is typing...
+        </div>
+      )}
       <div className="border-t border-white/10 bg-black/25 p-3">
         <form
           className="flex items-center gap-2"
@@ -354,7 +395,7 @@ function DirectMessage() {
         >
           <Input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             placeholder={`Message @${activeFriend.username}`}
             className="h-11"
           />

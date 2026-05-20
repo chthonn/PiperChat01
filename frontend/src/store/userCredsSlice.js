@@ -7,6 +7,12 @@ export const user_creds = createSlice({
     tag: "",
     profile_pic: "",
     id: 0,
+    notification_preferences: {
+      direct_messages: true,
+      friend_requests: true,
+      server_messages: true,
+      server_invites: true,
+    },
   },
   reducers: {
     change_username: (state, action) => {
@@ -21,6 +27,9 @@ export const user_creds = createSlice({
     option_user_id: (state, action) => {
       state.id = action.payload;
     },
+    set_notification_preferences: (state, action) => {
+      state.notification_preferences = action.payload;
+    },
   },
 });
 
@@ -30,6 +39,7 @@ export const {
   change_tag,
   option_profile_pic,
   option_user_id,
+  set_notification_preferences,
 } = user_creds.actions;
 
 export default user_creds.reducer;

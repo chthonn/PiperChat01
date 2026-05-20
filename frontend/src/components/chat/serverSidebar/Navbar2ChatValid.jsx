@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { logout } from "../../../lib/logout";
 import ServerDetails from "../serverDetails/ServerDetails";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -65,7 +66,7 @@ function Navbar2ChatValid({ onNavigate }) {
   };
 
   const create_invite_link = async () => {
-    const res = await fetch(`${url}/create_invite_link`, {
+    const res = await fetch(`${url}/invites/create_invite_link`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -86,7 +87,7 @@ function Navbar2ChatValid({ onNavigate }) {
   };
 
   const delete_server = async () => {
-    const res = await fetch(`${url}/delete_server`, {
+    const res = await fetch(`${url}/servers/delete_server`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -104,7 +105,7 @@ function Navbar2ChatValid({ onNavigate }) {
   };
 
   const leave_server = async () => {
-    const res = await fetch(`${url}/leave_server`, {
+    const res = await fetch(`${url}/servers/leave_server`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -130,7 +131,7 @@ function Navbar2ChatValid({ onNavigate }) {
   }
 
   const server_info = useCallback(async () => {
-    const res = await fetch(`${url}/server_info`, {
+    const res = await fetch(`${url}/servers/server_info`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -172,7 +173,7 @@ function Navbar2ChatValid({ onNavigate }) {
   }, [Navigate, activeChannelId, dispatch, server_id, url]);
 
   const create_category = async () => {
-    const res = await fetch(`${url}/add_new_category`, {
+    const res = await fetch(`${url}/servers/add_new_category`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -276,10 +277,7 @@ function Navbar2ChatValid({ onNavigate }) {
             <button
               type="button"
               className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/5"
-              onClick={() => {
-                localStorage.clear();
-                window.location.reload();
-              }}
+              onClick={logout}
             >
               Logout
               <LogOut className="h-4 w-4 text-white/60" />

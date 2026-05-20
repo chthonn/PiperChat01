@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } f
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { close_direct_message } from "../../store/directMessageSlice";
+import { API_BASE_URL } from "../../config";
 
 function Navbar({ new_req_recieved, user_cred, onNavigate }) {
   const dispatch = useDispatch();
@@ -103,7 +104,7 @@ function Navbar({ new_req_recieved, user_cred, onNavigate }) {
   const create_server = async () => {
     const image_url = await upload_server_image();
 
-    const res = await fetch(`${import.meta.env.VITE_URL}/create_server`, {
+    const res = await fetch(`${API_BASE_URL}/servers/create_server`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
