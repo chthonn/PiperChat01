@@ -1,5 +1,4 @@
 name: CI
-
 on:
   pull_request:
     branches:
@@ -8,43 +7,34 @@ on:
     branches:
       - main
   workflow_dispatch:
-
 jobs:
   frontend:
     name: Frontend checks
     runs-on: ubuntu-latest
-
     defaults:
       run:
         working-directory: frontend
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install dependencies
         run: npm ci
-
       - name: Run lint
         run: npm run lint
-
       - name: Build frontend
         run: npm run build
         env:
-          VITE_APP_URL: http://localhost:2000
-          VITE_APP_front_end_url: http://localhost:5173
-
+          VITE_URL: http://localhost:2000
+          VITE_FRONT_END_URL: http://localhost:5173
   backend:
-    name: Backend dependency check
+    name: Backend checks
     runs-on: ubuntu-latest
-
     services:
       mongo:
         image: mongo:7
@@ -56,28 +46,24 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --health-start-period 20s
-
     defaults:
       run:
         working-directory: server
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: server/package-lock.json
-
       - name: Install dependencies
         run: npm ci
-
+      - name: Run backend tests (Jest)
+        run: npm test
       - name: Auth unit checks (JWT / bcrypt shape)
         run: npm run test:auth:unit
-
       - name: Auth integration (Mongo + HTTP)
         env:
           MONGO_URI: mongodb://127.0.0.1:27017/piperchat_ci_auth

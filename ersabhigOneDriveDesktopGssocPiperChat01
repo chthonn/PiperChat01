@@ -1,0 +1,42 @@
+[1mdiff --git a/frontend/src/components/notifications/NotificationListener.jsx b/frontend/src/components/notifications/NotificationListener.jsx[m
+[1mindex 2165552..2c4a7a7 100644[m
+[1m--- a/frontend/src/components/notifications/NotificationListener.jsx[m
+[1m+++ b/frontend/src/components/notifications/NotificationListener.jsx[m
+[36m@@ -21,7 +21,7 @@[m [mfunction NotificationListener() {[m
+   const userId = useSelector((state) => state.user_info.id);[m
+   const activeFriend = useSelector((state) => state.direct_message.activeFriend);[m
+   const activeChannelId = useSelector((state) => state.currentPage.page_id);[m
+[31m-  const url = process.env.REACT_APP_URL;[m
+[32m+[m[32m  const url = import.meta.env.VITE_URL;[m
+ [m
+   const pathParts = location.pathname.split("/");[m
+   const activeServerId = pathParts[2];[m
+[1mdiff --git a/frontend/src/config/index.js b/frontend/src/config/index.js[m
+[1mindex 9f1d931..68e3590 100644[m
+[1m--- a/frontend/src/config/index.js[m
+[1m+++ b/frontend/src/config/index.js[m
+[36m@@ -1,2 +1 @@[m
+[31m-export const API_BASE_URL = process.env.REACT_APP_URL || "";[m
+[31m-[m
+[32m+[m[32mexport const API_BASE_URL = import.meta.env.VITE_URL || "";[m
+\ No newline at end of file[m
+[1mdiff --git a/frontend/src/lib/supabaseClient.js b/frontend/src/lib/supabaseClient.js[m
+[1mindex f95128f..3e22b23 100644[m
+[1m--- a/frontend/src/lib/supabaseClient.js[m
+[1m+++ b/frontend/src/lib/supabaseClient.js[m
+[36m@@ -1,12 +1,12 @@[m
+ import { createClient } from "@supabase/supabase-js";[m
+ [m
+[31m-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;[m
+[31m-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;[m
+[32m+[m[32mconst supabaseUrl = import.meta.env.VITE_SUPABASE_URL;[m
+[32m+[m[32mconst supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;[m
+ [m
+ export const supabase =[m
+   supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;[m
+ [m
+ export function getSupabaseBucket() {[m
+[31m-  return process.env.REACT_APP_SUPABASE_BUCKET || "server-icons";[m
+[32m+[m[32m  return import.meta.env.VITE_SUPABASE_BUCKET || "server-icons";[m
+ }[m
+ [m
