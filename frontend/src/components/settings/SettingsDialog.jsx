@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import jwt from "jwt-decode";
 import { v4 as uuidv4 } from "uuid";
@@ -36,7 +36,14 @@ async function uploadProfilePic(file) {
   return data?.publicUrl || "";
 }
 
-function NotificationToggle({ label, description, checked, onChange, icon: Icon }) {
+const DEFAULT_NOTIFICATION_PREFS = {
+  direct_messages: true,
+  friend_requests: true,
+  server_messages: true,
+  server_invites: true,
+};
+
+function NotificationToggle({ label, description, checked, onChange, icon: Icon, disabled }) {
   return (
     <div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3 transition-all duration-200 hover:bg-white/[0.06]">
       <div className="flex items-center gap-3">
@@ -46,7 +53,7 @@ function NotificationToggle({ label, description, checked, onChange, icon: Icon 
           {description && <div className="text-xs text-white/40">{description}</div>}
         </div>
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
+      <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} />
     </div>
   );
 }
@@ -89,20 +96,15 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
 
-  const [notifDirectMessages, setNotifDirectMessages] = useState(
-    user.notification_preferences?.direct_messages ?? true
+  const [notifSavingKey, setNotifSavingKey] = useState(null);
+
+  const notificationPrefs = useMemo(
+    () => ({
+      ...DEFAULT_NOTIFICATION_PREFS,
+      ...user.notification_preferences,
+    }),
+    [user.notification_preferences],
   );
-  const [notifFriendRequests, setNotifFriendRequests] = useState(
-    user.notification_preferences?.friend_requests ?? true
-  );
-  const [notifServerMessages, setNotifServerMessages] = useState(
-    user.notification_preferences?.server_messages ?? true
-  );
-  const [notifServerInvites, setNotifServerInvites] = useState(
-    user.notification_preferences?.server_invites ?? true
-  );
-  const [savingNotifications, setSavingNotifications] = useState(false);
-  const [notifSuccess, setNotifSuccess] = useState("");
 
   const effectivePreview = useMemo(() => {
     return previewUrl || resolveProfilePic(user.profile_pic, user.username);
@@ -119,14 +121,9 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
       setConfirmPassword("");
       setPasswordError("");
       setPasswordSuccess("");
-      setNotifDirectMessages(user.notification_preferences?.direct_messages ?? true);
-      setNotifFriendRequests(user.notification_preferences?.friend_requests ?? true);
-      setNotifServerMessages(user.notification_preferences?.server_messages ?? true);
-      setNotifServerInvites(user.notification_preferences?.server_invites ?? true);
-      setNotifSuccess("");
       setError("");
     }
-  }, [open, user.username]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, user.username]);
 
   const reset = () => {
     setDisplayName(user.username || "");
@@ -140,13 +137,47 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
     setConfirmPassword("");
     setPasswordError("");
     setPasswordSuccess("");
-    setNotifDirectMessages(user.notification_preferences?.direct_messages ?? true);
-    setNotifFriendRequests(user.notification_preferences?.friend_requests ?? true);
-    setNotifServerMessages(user.notification_preferences?.server_messages ?? true);
-    setNotifServerInvites(user.notification_preferences?.server_invites ?? true);
-    setNotifSuccess("");
+    setNotifSavingKey(null);
     setActiveTab("user");
   };
+
+  const updateNotificationPref = useCallback(
+    async (key, value) => {
+      const previous = { ...notificationPrefs };
+      const next = { ...notificationPrefs, [key]: value };
+      dispatch(set_notification_preferences(next));
+      setError("");
+      setNotifSavingKey(key);
+      try {
+        const res = await fetch(`${API_BASE_URL}/profile/notifications`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-auth-token": localStorage.getItem("token") || "",
+          },
+          body: JSON.stringify({ [key]: value }),
+        });
+        const data = await res.json();
+        if (data.status !== 200) {
+          dispatch(set_notification_preferences(previous));
+          setError(data.message || "Failed to update notification preference.");
+          return;
+        }
+        if (data.token) {
+          localStorage.setItem("token", data.token);
+        }
+        if (data.notification_preferences) {
+          dispatch(set_notification_preferences(data.notification_preferences));
+        }
+      } catch {
+        dispatch(set_notification_preferences(previous));
+        setError("Failed to update notification preference.");
+      } finally {
+        setNotifSavingKey(null);
+      }
+    },
+    [dispatch, notificationPrefs],
+  );
 
   const saveProfile = async () => {
     const nextName = String(displayName || "").trim().replace(/\s+/g, " ");
@@ -212,6 +243,9 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
       dispatch(change_username(decoded.username));
       dispatch(change_tag(decoded.tag));
       dispatch(option_profile_pic(updatedProfilePic));
+      if (decoded.notification_preferences) {
+        dispatch(set_notification_preferences(decoded.notification_preferences));
+      }
 
       setSuccess("Profile updated successfully!");
       setSaving(false);
@@ -289,45 +323,6 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
     }
   };
 
-  const saveNotifications = async () => {
-    setSavingNotifications(true);
-    setError("");
-    setNotifSuccess("");
-    try {
-      const res = await fetch(`${API_BASE_URL}/profile/notifications`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "x-auth-token": localStorage.getItem("token"),
-        },
-        body: JSON.stringify({
-          direct_messages: notifDirectMessages,
-          friend_requests: notifFriendRequests,
-          server_messages: notifServerMessages,
-          server_invites: notifServerInvites,
-        }),
-      });
-      const data = await res.json();
-      if (data.status !== 200) {
-        setError(data.message || "Failed to save notification preferences.");
-      } else {
-        dispatch(set_notification_preferences(data.notification_preferences));
-        localStorage.setItem("notification_preferences", JSON.stringify(data.notification_preferences));
-        setNotifSuccess("Notification settings saved!");
-        setTimeout(() => {
-          setSavingNotifications(false);
-          setTimeout(() => {
-            setOpen(false);
-            reset();
-          }, 1000);
-        }, 800);
-      }
-    } catch {
-      setError("Failed to save notification preferences.");
-      setSavingNotifications(false);
-    }
-  };
-
   return (
     <Dialog
       open={open}
@@ -402,8 +397,8 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
                           onError={handleImageError}
                         />
                       </div>
-                      <label className="absolute bottom-0 right-0 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-violet-600 ring-2 ring-black/20 transition-all duration-200 hover:bg-violet-500 hover:scale-110">
-                        <Pencil className="h-3.5 w-3.5 text-white" />
+                      <label className="absolute bottom-0 right-0 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-cyan-400 text-zinc-950 shadow-md ring-2 ring-black/30 transition-all duration-200 hover:from-violet-400 hover:to-cyan-300 hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950">
+                        <Pencil className="h-3.5 w-3.5 text-zinc-950" />
                         <input
                           type="file"
                           accept="image/*"
@@ -482,7 +477,9 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
                 <div className="mx-auto max-w-lg space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div>
                     <h3 className="text-base font-bold text-white">Notifications</h3>
-                    <p className="text-xs text-white/50">Configure how and when you want to be notified</p>
+                    <p className="text-xs text-white/50">
+                      Changes apply immediately. Unread badges sync when you turn notifications back on.
+                    </p>
                   </div>
 
                   <div className="space-y-1 rounded-2xl border border-white/5 bg-white/[0.02]">
@@ -490,29 +487,33 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
                       label="Direct Messages"
                       description="Receive notifications for private messages"
                       icon={Image}
-                      checked={notifDirectMessages}
-                      onChange={setNotifDirectMessages}
+                      checked={notificationPrefs.direct_messages}
+                      onChange={(value) => updateNotificationPref("direct_messages", value)}
+                      disabled={notifSavingKey !== null}
                     />
                     <NotificationToggle
                       label="Friend Requests"
                       description="Notify when someone adds you"
                       icon={UserPlus}
-                      checked={notifFriendRequests}
-                      onChange={setNotifFriendRequests}
+                      checked={notificationPrefs.friend_requests}
+                      onChange={(value) => updateNotificationPref("friend_requests", value)}
+                      disabled={notifSavingKey !== null}
                     />
                     <NotificationToggle
                       label="Server Activity"
                       description="Notifications from joined servers"
                       icon={Users}
-                      checked={notifServerMessages}
-                      onChange={setNotifServerMessages}
+                      checked={notificationPrefs.server_messages}
+                      onChange={(value) => updateNotificationPref("server_messages", value)}
+                      disabled={notifSavingKey !== null}
                     />
                     <NotificationToggle
                       label="Server Invitations"
                       description="When you're invited to a new server"
                       icon={Mail}
-                      checked={notifServerInvites}
-                      onChange={setNotifServerInvites}
+                      checked={notificationPrefs.server_invites}
+                      onChange={(value) => updateNotificationPref("server_invites", value)}
+                      disabled={notifSavingKey !== null}
                     />
                   </div>
                 </div>
@@ -546,10 +547,10 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
                     {passwordError}
                   </div>
                 )}
-                {activeTab === "notifications" && notifSuccess && (
-                  <div className="flex items-center gap-2 text-sm text-emerald-400">
-                    <CheckCircle2 className="h-4 w-4" />
-                    {notifSuccess}
+                {activeTab === "notifications" && notifSavingKey && (
+                  <div className="flex items-center gap-2 text-sm text-white/50">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
                   </div>
                 )}
                 {activeTab === "notifications" && error && (
@@ -576,15 +577,6 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
                   >
                     {changingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
                     Update Password
-                  </Button>
-                )}
-                {activeTab === "notifications" && (
-                  <Button
-                    onClick={saveNotifications}
-                    disabled={savingNotifications}
-                  >
-                    {savingNotifications ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-                    Save Preferences
                   </Button>
                 )}
               </div>

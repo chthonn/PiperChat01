@@ -250,10 +250,16 @@ router.patch("/profile/notifications", authToken, async (req, res) => {
       return res.status(404).json({ message: "User not found", status: 404 });
     }
 
+    const token = jwt.sign(
+      buildAuthUserJwtPayload(updated),
+      process.env.ACCESS_TOKEN,
+    );
+
     return res.status(200).json({
       status: 200,
       message: "Notification preferences updated",
       notification_preferences: updated.notification_preferences,
+      token,
     });
   } catch (err) {
     return res.status(500).json({ message: "Server error", status: 500 });

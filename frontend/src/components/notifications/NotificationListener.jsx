@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation } from "react-router-dom";
 import socket from "../socket/Socket";
@@ -26,8 +26,6 @@ function NotificationListener() {
 
   const canReceiveDMs = notificationPrefs?.direct_messages ?? true;
   const canReceiveServerMessages = notificationPrefs?.server_messages ?? true;
-  const canReceiveFriendRequests = notificationPrefs?.friend_requests ?? true;
-  const canReceiveServerInvites = notificationPrefs?.server_invites ?? true;
 
   const pathParts = location.pathname.split("/");
   const activeServerId = pathParts[2];
@@ -82,6 +80,43 @@ function NotificationListener() {
     };
   }, [userId, url, dispatch]);
 
+  const prevPrefsRef = useRef(notificationPrefs);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const prev = prevPrefsRef.current;
+    const reEnabled =
+      (prev?.direct_messages === false && canReceiveDMs) ||
+      (prev?.server_messages === false && canReceiveServerMessages);
+
+    if (reEnabled) {
+      const res = fetch(`${url}/unread_summary`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": localStorage.getItem("token"),
+        },
+      }).then((r) => r.json());
+      res.then((data) => {
+        if (data.status === 200) {
+          dispatch(set_unread_summary(data.summary));
+        }
+      });
+    }
+
+    prevPrefsRef.current = notificationPrefs;
+  }, [
+    userId,
+    url,
+    dispatch,
+    notificationPrefs,
+    canReceiveDMs,
+    canReceiveServerMessages,
+  ]);
+
   useEffect(() => {
     const handleDmNotification = ({ friend_id }) => {
       if (activeFriend?.id === friend_id && isDashboard) {
@@ -128,26 +163,11 @@ function NotificationListener() {
     socket.on("direct_message_notification", handleDmNotification);
     socket.on("server_message_notification", handleServerNotification);
 
-    const handleFriendRequestNotification = () => {
-      if (!canReceiveFriendRequests) return;
-      dispatch(update_options());
-    };
-
-    const handleServerInviteNotification = () => {
-      if (!canReceiveServerInvites) return;
-      dispatch(update_options());
-    };
-
-    socket.on("friend_request_notification", handleFriendRequestNotification);
-    socket.on("server_invite_notification", handleServerInviteNotification);
-
     return () => {
       socket.off("direct_message_notification", handleDmNotification);
       socket.off("server_message_notification", handleServerNotification);
-      socket.off("friend_request_notification", handleFriendRequestNotification);
-      socket.off("server_invite_notification", handleServerInviteNotification);
     };
-  }, [activeFriend, activeServerId, activeChannelId, isDashboard, canReceiveDMs, canReceiveServerMessages, canReceiveFriendRequests, canReceiveServerInvites, url, dispatch]);
+  }, [activeFriend, activeServerId, activeChannelId, isDashboard, canReceiveDMs, canReceiveServerMessages, url, dispatch]);
 
   return null;
 }

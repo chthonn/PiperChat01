@@ -23,11 +23,11 @@ function Dashboard() {
   const dispatch = useDispatch();
   const { server_id } = useParams();
   const isDashboard = server_id === "@me" || server_id === undefined;
-  
+
   // Select user info from Redux for real-time reactivity
-  const { 
-    username: reduxUsername, 
-    profile_pic: reduxProfilePic 
+  const {
+    username: reduxUsername,
+    profile_pic: reduxProfilePic
   } = useSelector((state) => state.user_info);
 
   const option_state = useSelector(
@@ -144,22 +144,21 @@ function Dashboard() {
       try {
         const user_creds = jwt(token);
         const { username, tag, profile_pic, id, notification_preferences } = user_creds;
-        
+
         dispatch(change_username(username));
         dispatch(change_tag(tag));
         dispatch(option_profile_pic(resolveProfilePic(profile_pic, username)));
         dispatch(option_user_id(id));
-        
-        let prefs = notification_preferences;
-        if (!prefs) {
-          const stored = localStorage.getItem("notification_preferences");
-          if (stored) {
-            prefs = JSON.parse(stored);
-          }
-        }
-        if (prefs) {
-          dispatch(set_notification_preferences(prefs));
-        }
+
+        dispatch(
+          set_notification_preferences({
+            direct_messages: true,
+            friend_requests: true,
+            server_messages: true,
+            server_invites: true,
+            ...notification_preferences,
+          }),
+        );
       } catch (err) {
         console.error("Failed to decode token", err);
       }
@@ -167,13 +166,13 @@ function Dashboard() {
   }, [dispatch]);
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-ink text-white">
+    <div className="relative h-dvh overflow-hidden bg-ink text-white">
       <div className="pointer-events-none absolute inset-0 bg-radial-glow" />
       <div className="pointer-events-none absolute inset-0 bg-grid-fade [background-size:36px_36px] opacity-15" />
 
       <div
         className={[
-          "relative mx-auto grid min-h-dvh w-full max-w-[1680px]",
+          "relative mx-auto grid h-dvh w-full max-w-[1680px]",
           "grid-rows-[56px_1fr]",
           "grid-cols-1",
           "lg:grid-cols-[72px_minmax(240px,280px)_minmax(0,1fr)]",
@@ -187,10 +186,10 @@ function Dashboard() {
       >
         <div className="hidden lg:block row-span-2 row-start-1 border-r border-white/10 bg-black/35">
           <Navbar
-            user_cred={{ 
-              username: reduxUsername, 
-              profile_pic: reduxProfilePic, 
-              user_servers: user_data.servers 
+            user_cred={{
+              username: reduxUsername,
+              profile_pic: reduxProfilePic,
+              user_servers: user_data.servers
             }}
             new_req_recieved={new_req_recieved}
           />
@@ -223,7 +222,7 @@ function Dashboard() {
           </div>
         ) : null}
 
-        <div className="col-start-1 row-start-2 min-w-0 lg:col-start-3 lg:col-span-1 lg:row-start-2">
+        <div className="col-start-1 row-start-2 min-w-0 overflow-hidden lg:col-start-3 lg:col-span-1 lg:row-start-2">
           <Main
             user_relations={{
               incoming_reqs: user_data.incoming_reqs,
@@ -242,10 +241,10 @@ function Dashboard() {
             <div className="flex h-dvh w-full">
               <div className="w-[72px] border-r border-white/10 bg-black/35">
                 <Navbar
-                  user_cred={{ 
-                    username: reduxUsername, 
-                    profile_pic: reduxProfilePic, 
-                    user_servers: user_data.servers 
+                  user_cred={{
+                    username: reduxUsername,
+                    profile_pic: reduxProfilePic,
+                    user_servers: user_data.servers
                   }}
                   new_req_recieved={new_req_recieved}
                   onNavigate={() => setMobileSidebarOpen(false)}

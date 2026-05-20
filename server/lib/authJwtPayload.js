@@ -9,11 +9,12 @@ export function buildAuthUserJwtPayload(user) {
     username: user.username ?? "",
     tag: user.tag ?? "",
     profile_pic: user.profile_pic ?? "",
-    notification_preferences: user.notification_preferences ?? {
+    notification_preferences: {
       direct_messages: true,
       friend_requests: true,
       server_messages: true,
       server_invites: true,
+      ...(user.notification_preferences || {}),
     },
   };
 }
