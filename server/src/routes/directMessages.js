@@ -248,4 +248,59 @@ router.post("/delete_direct_message", async (req, res) => {
   return res.status(200).json({ status: 200, message: "Message deleted" });
 });
 
+router.post("/toggle_dm_reaction", async (req, res) => {
+  const user = getAuthorizedUser(req, res);
+  if (!user) return;
+
+  const { friend_id, timestamp, emoji } = req.body;
+  if (!friend_id || !timestamp || !emoji) {
+    return res.status(400).json({ status: 400, message: "Invalid input" });
+  }
+
+  const participants = getThreadParticipants(user.id, friend_id);
+  const thread = await DirectMessageThread.findOne({ participants });
+  if (!thread) return res.status(404).json({ status: 404 });
+
+  const message = thread.messages.find(
+    (m) => String(m.timestamp) === String(timestamp)
+  );
+  if (!message) return res.status(404).json({ status: 404 });
+
+  if (!message.reactions) message.reactions = [];
+  let reaction = message.reactions.find((r) => r.emoji === emoji);
+
+  if (reaction) {
+    if (reaction.users.includes(user.id)) {
+      reaction.users = reaction.users.filter((u) => u !== user.id);
+      if (reaction.users.length === 0) {
+        message.reactions = message.reactions.filter((r) => r.emoji !== emoji);
+      }
+    } else {
+      reaction.users.push(user.id);
+    }
+  } else {
+    message.reactions.push({ emoji, users: [user.id] });
+  }
+
+  thread.markModified("messages");
+  await thread.save();
+  await cache.del(`dm:${participants[0]}:${participants[1]}`);
+
+  const io = getIO();
+  if (io) {
+    io.to(friend_id).emit("dm_reaction_updated", {
+      timestamp,
+      reactions: message.reactions,
+      friend_id: user.id,
+    });
+    io.to(user.id).emit("dm_reaction_updated", {
+      timestamp,
+      reactions: message.reactions,
+      friend_id,
+    });
+  }
+
+  res.json({ status: 200, reactions: message.reactions });
+});
+
 export default router;
