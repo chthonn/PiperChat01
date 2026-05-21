@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 
 export default function AuthShell({ children, mode }) {
-  const isRegister = mode === "register";
 
   return (
     <div
