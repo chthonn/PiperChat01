@@ -35,7 +35,13 @@ export const unreadSlice = createSlice({
         return;
       }
 
-      server.total -= server.channels[channel_id];
+      const channelCount = server.channels[channel_id];
+      if (typeof channelCount !== "number") {
+        delete server.channels[channel_id];
+        return;
+      }
+
+      server.total -= channelCount;
       delete server.channels[channel_id];
 
       if (server.total <= 0) {

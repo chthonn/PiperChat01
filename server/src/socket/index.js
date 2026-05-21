@@ -64,7 +64,9 @@ function setUserOffline(io, userId, socketId) {
 function attachSocketHandlers(io) {
   io.on("connection", (socket) => {
     socket.on("channelCreated", (data) => {
-      io.emit("newChannel", data);
+      if (data && data.server_id) {
+        socket.to(`server:${String(data.server_id)}`).emit("newChannel", data);
+      }
     });
   });
 

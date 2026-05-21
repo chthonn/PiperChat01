@@ -4,16 +4,21 @@ import User from "../models/User.js";
 import { sendMail } from "./email.js";
 
 export async function isUsernameAvailable(username) {
-  const latestTaggedUser = await User.findOne({
-    tag: { $regex: "^[0-9]{4}$" },
+  const allTags = await User.find({
+    tag: { $regex: "^[0-9]+$" },
   })
-    .sort({ tag: -1 })
     .select("tag")
     .lean();
 
-  const nextTagNumber = latestTaggedUser
-    ? parseInt(latestTaggedUser.tag, 10) + 1
-    : 1;
+  let maxTag = 0;
+  for (const doc of allTags) {
+    const num = parseInt(doc.tag, 10);
+    if (!isNaN(num) && num > maxTag) {
+      maxTag = num;
+    }
+  }
+
+  const nextTagNumber = maxTag + 1;
 
   return { final_tag: generateTag(nextTagNumber), tag_counter: nextTagNumber };
 }

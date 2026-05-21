@@ -156,7 +156,8 @@ router.patch("/", authToken, async (req, res) => {
 
     const token = jwt.sign(
       buildAuthUserJwtPayload(updated),
-      config.ACCESS_TOKEN
+      config.ACCESS_TOKEN,
+      { expiresIn: "7d" },
     );
 
     return res.status(200).json({
@@ -255,6 +256,7 @@ router.patch("/notifications", authToken, async (req, res) => {
     const token = jwt.sign(
       buildAuthUserJwtPayload(updated),
       config.ACCESS_TOKEN,
+      { expiresIn: "7d" },
     );
 
     return res.status(200).json({

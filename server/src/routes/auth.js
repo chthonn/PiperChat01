@@ -183,8 +183,12 @@ router.post("/signup", expressRateLimit("auth"), async (req, res) => {
 });
 
 router.post("/verify", expressRateLimit("otp"), async (req, res) => {
-  const { email } = req.body;
+  const email = String(req.body.email || "").trim().toLowerCase();
   const otpValue = String(req.body.otp_value || "").trim();
+
+  if (!email) {
+    return res.status(400).json({ error: "Email is required", status: 400 });
+  }
 
   try {
     const user = await User.findOne({ email }).lean();
@@ -197,7 +201,7 @@ router.post("/verify", expressRateLimit("otp"), async (req, res) => {
     const currentOtp = user.verification?.[0]?.code;
 
     if (Date.now() - currentTimestamp < config.OTP_TTL_MS) {
-      if (otpValue === currentOtp) {
+      if (constantTimeStringEqual(otpValue, currentOtp)) {
         await User.updateOne({ email }, { $set: { authorized: true } });
         return res.status(201).json({
           message: "Congrats you are verified now",
@@ -224,7 +228,11 @@ router.post("/verify", expressRateLimit("otp"), async (req, res) => {
 });
 
 router.post("/resend_otp", expressRateLimit("otp"), async (req, res) => {
-  const { email } = req.body;
+  const email = String(req.body.email || "").trim().toLowerCase();
+
+  if (!email) {
+    return res.status(400).json({ error: "Email is required", status: 400 });
+  }
 
   try {
     const user = await User.findOne({ email }).lean();
@@ -254,7 +262,7 @@ router.post("/resend_otp", expressRateLimit("otp"), async (req, res) => {
 
 router.post("/signin", expressRateLimit("auth"), async (req, res) => {
   try {
-    const email = req.body.email;
+    const email = String(req.body.email || "").trim().toLowerCase();
     const plainPassword = req.body.password;
     if (
       typeof email !== "string" ||
@@ -299,6 +307,7 @@ router.post("/signin", expressRateLimit("auth"), async (req, res) => {
     const token = jwt.sign(
       buildAuthUserJwtPayload(user),
       config.ACCESS_TOKEN,
+      { expiresIn: "7d" },
     );
     return res
       .status(201)

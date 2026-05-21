@@ -37,26 +37,40 @@ function getAuthorizedUser(req, res) {
 }
 
 router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
+  const user = getAuthorizedUser(req, res);
+  if (!user) {
+    return;
+  }
+
   const {
     message,
     server_id,
     channel_id,
     channel_name,
     timestamp,
-    username,
-    tag,
-    id,
-    profile_pic,
   } = req.body;
 
   const chatMessage = {
+    channel_id,
     content: message,
-    sender_id: id,
-    sender_name: username,
-    sender_pic: profile_pic,
-    sender_tag: tag,
+    sender_id: user.id,
+    sender_name: user.username || user.email,
+    sender_pic: user.profile_pic || "",
+    sender_tag: user.tag || "",
     timestamp,
   };
+
+  const server = await Server.findById(server_id).lean();
+  if (!server) {
+    return res.status(404).json({ status: 404, message: "Server not found" });
+  }
+
+  const isMember = (server.users || []).some(
+    (entry) => String(entry.user_id) === String(user.id),
+  );
+  if (!isMember) {
+    return res.status(403).json({ status: 403, message: "Forbidden" });
+  }
 
   const response = await Chat.find({
     server_id,
@@ -72,7 +86,7 @@ router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
     }
 
     const recipients = (server.users || []).filter(
-      (user) => user.user_id !== id,
+      (entry) => entry.user_id !== user.id,
     );
     for (const recipient of recipients) {
       await incrementServerUnread(recipient.user_id, server_id, channel_id);
@@ -82,7 +96,7 @@ router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
           server_id,
           channel_id,
           channel_name,
-          sender_name: username,
+          sender_name: user.username || user.email,
         });
       }
     }
@@ -149,6 +163,11 @@ router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
 });
 
 router.post("/get_messages", async (req, res) => {
+  const user = getAuthorizedUser(req, res);
+  if (!user) {
+    return;
+  }
+
   const { channel_id, server_id } = req.body;
 
   if (!channel_id || !server_id) {
@@ -225,6 +244,7 @@ router.post("/edit_server_message", async (req, res) => {
     const io = getIO();
     if (io) {
       io.to(`channel:${channel_id}`).emit("server_message_updated", {
+        channel_id,
         timestamp,
         sender_id: senderId,
         content: message.content,
@@ -284,6 +304,7 @@ router.post("/delete_server_message", async (req, res) => {
     const io = getIO();
     if (io) {
       io.to(`channel:${channel_id}`).emit("server_message_deleted", {
+        channel_id,
         timestamp,
         sender_id: senderId,
       });
