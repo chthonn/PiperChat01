@@ -1,4 +1,4 @@
-import discord_logo from "../../images/discord_logo_2.svg";
+import discord_logo from "../../images/discord_logo_3.png";
 import { ChevronRight, Plus, ArrowLeft, Loader2 } from "lucide-react";
 import server_img_1 from "../../images/new_server.svg";
 import server_img_2 from "../../images/server_image_2.svg";
@@ -136,10 +136,10 @@ function Navbar({ new_req_recieved, user_cred, onNavigate }) {
           onNavigate?.();
         }}
         className={[
-          "group relative grid h-12 w-12 place-items-center overflow-visible rounded-2xl border",
+          "group relative grid h-12 w-12 place-items-center overflow-visible rounded-full transition-all duration-200",
           activeServerId === "@me" || !activeServerId
-            ? "border-brand-400/40 bg-brand-400/10 text-brand-300"
-            : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
+            ? "opacity-100 drop-shadow-md"
+            : "opacity-70 hover:opacity-100",
         ].join(" ")}
         title="Home"
       >

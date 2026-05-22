@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import logo from "../../images/discord_logo_3.png";
+import logo from "../../images/logo.png";
 import { useParams } from "react-router-dom";
 import invalid_link_image from "../../images/invalid_invite.svg";
 import jwt from "jwt-decode";
@@ -19,12 +19,8 @@ function Invite() {
   const [invalid_invite_link, setinvalid_invite_link] = useState(null);
 
 const [already_member, setAlreadyMember] = useState(false);   // 403 from backend
-  const [accept_failed, setAcceptFailed] = useState(false);     // 500 or network error
-  const [accepting, setAccepting] = useState(false);            // loading state on button
-
-
-
-
+  const [accept_failed, setAcceptFailed] = useState(false);
+  const [accepting, setAccepting] = useState(false);
 
   const accept_invite = async () => {
     setAccepting(true);

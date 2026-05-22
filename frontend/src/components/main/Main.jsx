@@ -5,7 +5,7 @@ import MainChat from '../chat/main/MainChat';
 import socket from '../socket/Socket';
 import { update_options } from '../../store/optionsSlice';
 import { useDispatch, useSelector } from 'react-redux';
-import discord_logo from '../../images/discord_logo_3.png'
+import discord_logo from '../../images/logo.png'
 import { resolveProfilePic, handleImageError } from '../../shared/imageFallbacks';
 import DirectMessage from '../directMessages/DirectMessage';
 import { X } from "lucide-react";
