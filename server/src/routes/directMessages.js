@@ -3,7 +3,7 @@ import config from "../config/index.js";
 import express from "express";
 import jwt from "jsonwebtoken";
 
-import DirectMessageThread from "../models/DirectMessageThread.js";
+import Message from "../models/Message.js";
 import User from "../models/User.js";
 import * as cache from "../lib/cache.js";
 import { incrementDmUnread } from "../services/unreadService.js";
@@ -54,16 +54,29 @@ router.post("/get_direct_messages", async (req, res) => {
     return res.status(200).json({ status: 200, messages: cached.messages, cached: true });
   }
 
-  const thread = await DirectMessageThread.findOne({
-    participants,
-  }).lean();
+  const limit = Math.min(Math.max(Number(req.body.limit) || 50, 1), 100);
+  const beforeTimestamp = req.body.before
+    ? Number(req.body.before)
+    : undefined;
 
-  const messages = thread?.messages || [];
-  await cache.setJson(cacheKey, { messages });
+  const query = { type: "dm", participants };
+  if (beforeTimestamp) {
+    query.timestamp = { $lt: beforeTimestamp };
+  }
+
+  const messages = await Message.find(query)
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .lean();
+
+  const ordered = messages.reverse();
+  if (!beforeTimestamp) {
+    await cache.setJson(cacheKey, { messages: ordered });
+  }
 
   return res.status(200).json({
     status: 200,
-    messages,
+    messages: ordered,
   });
 });
 
@@ -105,14 +118,11 @@ router.post("/send_direct_message", async (req, res) => {
 
   const participants = getThreadParticipants(currentUserId, friendUserId);
 
-  await DirectMessageThread.findOneAndUpdate(
-    { participants },
-    {
-      $setOnInsert: { participants },
-      $push: { messages: message },
-    },
-    { upsert: true, returnDocument: "after" }
-  );
+  await Message.create({
+    type: "dm",
+    participants,
+    ...message,
+  });
   await cache.del(`dm:${participants[0]}:${participants[1]}`);
 
   const io = getIO();
@@ -164,22 +174,21 @@ router.post("/edit_direct_message", async (req, res) => {
   }
 
   const participants = getThreadParticipants(user.id, friend_id);
-  const thread = await DirectMessageThread.findOne({ participants });
+  const updated = await Message.findOneAndUpdate(
+    {
+      type: "dm",
+      participants,
+      timestamp: Number(timestamp),
+      sender_id: user.id,
+    },
+    { content: content.trim(), edited_at: Date.now() },
+    { new: true }
+  ).lean();
 
-  if (!thread) {
-    return res.status(404).json({ status: 404, message: "Thread not found" });
-  }
-
-  const message = thread.messages.find(
-    (entry) => String(entry.timestamp) === String(timestamp) && entry.sender_id === user.id
-  );
-
-  if (!message) {
+  if (!updated) {
     return res.status(404).json({ status: 404, message: "Message not found" });
   }
 
-  message.content = content.trim();
-  await thread.save();
   await cache.del(`dm:${participants[0]}:${participants[1]}`);
 
   const io = getIO();
@@ -187,13 +196,13 @@ router.post("/edit_direct_message", async (req, res) => {
     io.to(friend_id).emit("direct_message_updated", {
       friend_id: user.id,
       timestamp,
-      content: message.content,
+      content: updated.content,
       sender_id: user.id,
     });
     io.to(user.id).emit("direct_message_updated", {
       friend_id,
       timestamp,
-      content: message.content,
+      content: updated.content,
       sender_id: user.id,
     });
   }
@@ -213,22 +222,17 @@ router.post("/delete_direct_message", async (req, res) => {
   }
 
   const participants = getThreadParticipants(user.id, friend_id);
-  const thread = await DirectMessageThread.findOne({ participants });
+  const deleted = await Message.deleteOne({
+    type: "dm",
+    participants,
+    timestamp: Number(timestamp),
+    sender_id: user.id,
+  });
 
-  if (!thread) {
-    return res.status(404).json({ status: 404, message: "Thread not found" });
-  }
-
-  const originalLength = thread.messages.length;
-  thread.messages = thread.messages.filter(
-    (entry) => !(String(entry.timestamp) === String(timestamp) && entry.sender_id === user.id)
-  );
-
-  if (thread.messages.length === originalLength) {
+  if (!deleted || deleted.deletedCount === 0) {
     return res.status(404).json({ status: 404, message: "Message not found" });
   }
 
-  await thread.save();
   await cache.del(`dm:${participants[0]}:${participants[1]}`);
 
   const io = getIO();

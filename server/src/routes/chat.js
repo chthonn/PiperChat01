@@ -3,12 +3,11 @@ import config from "../config/index.js";
 import express from "express";
 import jwt from "jsonwebtoken";
 
-import Chat from "../models/Chat.js";
+import Message from "../models/Message.js";
 import Server from "../models/Server.js";
 import User from "../models/User.js";
 import * as cache from "../lib/cache.js";
 import logger from "../lib/winston.js";
-import { getChats } from "../services/chatService.js";
 import { incrementServerUnread } from "../services/unreadService.js";
 import { getIO } from "../socket/runtime.js";
 
@@ -72,11 +71,6 @@ router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
     return res.status(403).json({ status: 403, message: "Forbidden" });
   }
 
-  const response = await Chat.find({
-    server_id,
-    "channels.channel_id": channel_id,
-  });
-
   async function notifyServerRecipients() {
     const server = await Server.findOne({ _id: server_id }).lean();
     const io = getIO();
@@ -102,63 +96,29 @@ router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
     }
   }
 
-  if (!response || response.length === 0) {
-    const pushNewChannel = {
-      $push: {
-        channels: [
-          {
-            channel_id,
-            channel_name,
-            chat_details: [chatMessage],
-          },
-        ],
-      },
-    };
-    try {
-      const data = await Chat.updateOne({ server_id }, pushNewChannel);
-      if (data && data.modifiedCount > 0) {
-        await cache.del(`chat:${server_id}:${channel_id}`);
-        await notifyServerRecipients();
-        const io = getIO();
-        if (io) {
-          io.to(`channel:${channel_id}`).emit(
-            "server_message_received",
-            chatMessage,
-          );
-        }
-        return res.json({ status: 200, message: chatMessage });
-      }
-      return res.status(500).json({ status: 500, message: "Update failed" });
-    } catch (err) {
-      return res.status(500).json({ status: 500, message: "Server error" });
+  try {
+    await Message.create({
+      type: "channel",
+      server_id,
+      channel_id,
+      content: message,
+      sender_id: user.id,
+      sender_name: user.username || user.email,
+      sender_pic: user.profile_pic || "",
+      sender_tag: user.tag || "",
+      timestamp: Number(timestamp),
+    });
+
+    await cache.del(`chat:${server_id}:${channel_id}:latest`);
+    await notifyServerRecipients();
+    const io = getIO();
+    if (io) {
+      io.to(`channel:${channel_id}`).emit("server_message_received", chatMessage);
     }
-  } else {
-    const pushNewChat = {
-      $push: {
-        "channels.$.chat_details": [chatMessage],
-      },
-    };
-    try {
-      const data = await Chat.updateOne(
-        { server_id, "channels.channel_id": channel_id },
-        pushNewChat,
-      );
-      if (data && data.modifiedCount > 0) {
-        await cache.del(`chat:${server_id}:${channel_id}`);
-        await notifyServerRecipients();
-        const io = getIO();
-        if (io) {
-          io.to(`channel:${channel_id}`).emit(
-            "server_message_received",
-            chatMessage,
-          );
-        }
-        return res.json({ status: 200, message: chatMessage });
-      }
-      return res.status(500).json({ status: 500, message: "Update failed" });
-    } catch (err) {
-      return res.status(500).json({ status: 500, message: "Server error" });
-    }
+    return res.json({ status: 200, message: chatMessage });
+  } catch (err) {
+    logger.error(`Error storing message: ${err.message}`);
+    return res.status(500).json({ status: 500, message: "Server error" });
   }
 });
 
@@ -177,24 +137,38 @@ router.post("/get_messages", async (req, res) => {
   }
 
   try {
-    const cacheKey = `chat:${server_id}:${channel_id}`;
+    const cacheKey = `chat:${server_id}:${channel_id}:latest`;
     const cached = await cache.getJson(cacheKey);
     if (cached && Array.isArray(cached.chats)) {
       return res.json({ chats: cached.chats, cached: true });
     }
 
-    const response = await getChats(server_id, channel_id);
-    if (
-      !response ||
-      !response[0] ||
-      !response[0].channels ||
-      response[0].channels.length === 0
-    ) {
-      return res.json({ chats: [] });
+    const limit = Math.min(Math.max(Number(req.body.limit) || 50, 1), 100);
+    const beforeTimestamp = req.body.before
+      ? Number(req.body.before)
+      : undefined;
+
+    const query = {
+      type: "channel",
+      server_id,
+      channel_id,
+    };
+
+    if (beforeTimestamp) {
+      query.timestamp = { $lt: beforeTimestamp };
     }
-    const chats = response[0].channels[0].chat_details || [];
-    await cache.setJson(cacheKey, { chats });
-    return res.json({ chats });
+
+    const chats = await Message.find(query)
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .lean();
+
+    const ordered = chats.reverse();
+    if (!beforeTimestamp) {
+      await cache.setJson(cacheKey, { chats: ordered });
+    }
+
+    return res.json({ chats: ordered });
   } catch (error) {
     logger.error(`Error retrieving chats: ${error.message}`);
     res.status(500).json({ error: "Failed to retrieve chats." });
@@ -214,32 +188,25 @@ router.post("/edit_server_message", async (req, res) => {
   }
 
   try {
-    const chatDoc = await Chat.findOne({
-      server_id,
-      "channels.channel_id": channel_id,
-    });
-    if (!chatDoc) {
-      return res.status(404).json({ status: 404, message: "Chat not found" });
-    }
+    const updated = await Message.findOneAndUpdate(
+      {
+        type: "channel",
+        server_id,
+        channel_id,
+        timestamp: Number(timestamp),
+        sender_id: senderId,
+      },
+      { content: content.trim(), edited_at: Date.now() },
+      { new: true }
+    ).lean();
 
-    const channel = chatDoc.channels.find(
-      (entry) => entry.channel_id === channel_id,
-    );
-    const message = channel?.chat_details.find(
-      (entry) =>
-        String(entry.timestamp) === String(timestamp) &&
-        entry.sender_id === senderId,
-    );
-
-    if (!message) {
+    if (!updated) {
       return res
         .status(404)
         .json({ status: 404, message: "Message not found" });
     }
 
-    message.content = content.trim();
-    await chatDoc.save();
-    await cache.del(`chat:${server_id}:${channel_id}`);
+    await cache.del(`chat:${server_id}:${channel_id}:latest`);
 
     const io = getIO();
     if (io) {
@@ -247,7 +214,7 @@ router.post("/edit_server_message", async (req, res) => {
         channel_id,
         timestamp,
         sender_id: senderId,
-        content: message.content,
+        content: updated.content,
       });
     }
 
@@ -271,35 +238,21 @@ router.post("/delete_server_message", async (req, res) => {
   }
 
   try {
-    const chatDoc = await Chat.findOne({
+    const deleted = await Message.deleteOne({
+      type: "channel",
       server_id,
-      "channels.channel_id": channel_id,
+      channel_id,
+      timestamp: Number(timestamp),
+      sender_id: senderId,
     });
-    if (!chatDoc) {
-      return res.status(404).json({ status: 404, message: "Chat not found" });
-    }
 
-    const channel = chatDoc.channels.find(
-      (entry) => entry.channel_id === channel_id,
-    );
-    const originalLength = channel?.chat_details.length || 0;
-
-    channel.chat_details = channel.chat_details.filter(
-      (entry) =>
-        !(
-          String(entry.timestamp) === String(timestamp) &&
-          entry.sender_id === senderId
-        ),
-    );
-
-    if (channel.chat_details.length === originalLength) {
+    if (!deleted || deleted.deletedCount === 0) {
       return res
         .status(404)
         .json({ status: 404, message: "Message not found" });
     }
 
-    await chatDoc.save();
-    await cache.del(`chat:${server_id}:${channel_id}`);
+    await cache.del(`chat:${server_id}:${channel_id}:latest`);
 
     const io = getIO();
     if (io) {
