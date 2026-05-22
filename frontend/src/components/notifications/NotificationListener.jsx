@@ -118,6 +118,40 @@ function NotificationListener() {
     canReceiveServerMessages,
   ]);
 
+  const unreadCountRef = useRef(0);
+
+  const incrementTabUnread = () => {
+    unreadCountRef.current += 1;
+    document.title = `(${unreadCountRef.current}) PiperChat`;
+    drawFaviconBadge(true);
+  };
+
+  const resetTabUnread = () => {
+    unreadCountRef.current = 0;
+    document.title = "PiperChat";
+    drawFaviconBadge(false);
+  };
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        resetTabUnread();
+      }
+    };
+
+    const handleFocus = () => {
+      resetTabUnread();
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
+
   useEffect(() => {
     const handleDmNotification = ({ friend_id }) => {
       if (activeFriend?.id === friend_id && isDashboard) {
@@ -130,12 +164,18 @@ function NotificationListener() {
           },
           body: JSON.stringify({ friend_id }),
         });
+        if (document.hidden) {
+          incrementTabUnread();
+        }
         return;
       }
 
       if (!canReceiveDMs) return;
 
       dispatch(increment_dm_unread({ friend_id }));
+      if (document.hidden) {
+        incrementTabUnread();
+      }
     };
 
     const handleServerNotification = ({ server_id, channel_id }) => {
@@ -153,12 +193,18 @@ function NotificationListener() {
           },
           body: JSON.stringify({ server_id, channel_id }),
         });
+        if (document.hidden) {
+          incrementTabUnread();
+        }
         return;
       }
 
       if (!canReceiveServerMessages) return;
 
       dispatch(increment_server_unread({ server_id, channel_id }));
+      if (document.hidden) {
+        incrementTabUnread();
+      }
     };
 
     socket.on("direct_message_notification", handleDmNotification);
@@ -173,4 +219,43 @@ function NotificationListener() {
   return null;
 }
 
+const drawFaviconBadge = (hasBadge) => {
+  const favicon = document.querySelector("link[rel~='icon']");
+  if (!favicon) return;
+
+  if (!hasBadge) {
+    favicon.href = "/favicon.png";
+    return;
+  }
+
+  const img = new Image();
+  img.src = "/favicon.png";
+  img.onload = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width || 32;
+    canvas.height = img.height || 32;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Draw original favicon
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    // Draw red badge in top-right corner
+    const radius = canvas.width * 0.25;
+    const x = canvas.width - radius;
+    const y = radius;
+
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+    ctx.fillStyle = "#FF0000";
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.stroke();
+
+    favicon.href = canvas.toDataURL("image/png");
+  };
+};
+
 export default NotificationListener;
+
