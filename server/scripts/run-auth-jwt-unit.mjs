@@ -28,7 +28,7 @@ const payload = buildAuthUserJwtPayload(mockUser);
 const token = jwt.sign(payload, secret);
 const decoded = jwt.verify(token, secret);
 
-const allowed = new Set(["id", "email", "username", "tag", "profile_pic", "iat"]);
+const allowed = new Set(["id", "email", "username", "tag", "profile_pic", "notification_preferences", "iat"]);
 for (const k of Object.keys(decoded)) {
   assert(allowed.has(k), `unexpected JWT claim: ${k}`);
 }

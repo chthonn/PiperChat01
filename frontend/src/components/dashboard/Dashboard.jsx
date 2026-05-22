@@ -12,6 +12,7 @@ import {
   change_tag,
   option_profile_pic,
   option_user_id,
+  set_notification_preferences,
 } from "../../store/userCredsSlice";
 import { server_existence } from "../../store/currentPage";
 import { API_BASE_URL } from "../../config";
@@ -22,14 +23,18 @@ function Dashboard() {
   const dispatch = useDispatch();
   const { server_id } = useParams();
   const isDashboard = server_id === "@me" || server_id === undefined;
+  
+  // Select user info from Redux for real-time reactivity
+  const { 
+    username: reduxUsername, 
+    profile_pic: reduxProfilePic 
+  } = useSelector((state) => state.user_info);
+
   const option_state = useSelector(
     (state) => state.selected_option.updated_options
   );
   const url = API_BASE_URL;
 
-  let token1 = localStorage.getItem("token");
-  let user_creds = jwt(token1);
-  const { username, tag, profile_pic, id } = user_creds;
   const [user_data, setuser_data] = useState({
     incoming_reqs: [],
     outgoing_reqs: [],
@@ -132,12 +137,33 @@ function Dashboard() {
     }
   }, [dispatch, server_id, user_data.servers]);
 
+  // Initial load of user info from token (only on mount)
   useEffect(() => {
-    dispatch(change_username(username));
-    dispatch(change_tag(tag));
-    dispatch(option_profile_pic(resolveProfilePic(profile_pic, username)));
-    dispatch(option_user_id(id));
-  }, [dispatch, id, profile_pic, tag, username]);
+    let token = localStorage.getItem("token");
+    if (token) {
+      try {
+        const user_creds = jwt(token);
+        const { username, tag, profile_pic, id, notification_preferences } = user_creds;
+        
+        dispatch(change_username(username));
+        dispatch(change_tag(tag));
+        dispatch(option_profile_pic(resolveProfilePic(profile_pic, username)));
+        dispatch(option_user_id(id));
+        
+        dispatch(
+          set_notification_preferences({
+            direct_messages: true,
+            friend_requests: true,
+            server_messages: true,
+            server_invites: true,
+            ...notification_preferences,
+          }),
+        );
+      } catch (err) {
+        console.error("Failed to decode token", err);
+      }
+    }
+  }, [dispatch]);
 
   return (
     <div className="relative min-h-dvh overflow-hidden bg-ink text-white">
@@ -160,7 +186,11 @@ function Dashboard() {
       >
         <div className="hidden lg:block row-span-2 row-start-1 border-r border-white/10 bg-black/35">
           <Navbar
-            user_cred={{ username: username, user_servers: user_data.servers }}
+            user_cred={{ 
+              username: reduxUsername, 
+              profile_pic: reduxProfilePic, 
+              user_servers: user_data.servers 
+            }}
             new_req_recieved={new_req_recieved}
           />
         </div>
@@ -211,7 +241,11 @@ function Dashboard() {
             <div className="flex h-dvh w-full">
               <div className="w-[72px] border-r border-white/10 bg-black/35">
                 <Navbar
-                  user_cred={{ username: username, user_servers: user_data.servers }}
+                  user_cred={{ 
+                    username: reduxUsername, 
+                    profile_pic: reduxProfilePic, 
+                    user_servers: user_data.servers 
+                  }}
                   new_req_recieved={new_req_recieved}
                   onNavigate={() => setMobileSidebarOpen(false)}
                 />

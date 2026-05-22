@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { logout } from "../../../lib/logout";
 import ServerDetails from "../serverDetails/ServerDetails";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -276,10 +277,7 @@ function Navbar2ChatValid({ onNavigate }) {
             <button
               type="button"
               className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/5"
-              onClick={() => {
-                localStorage.clear();
-                window.location.reload();
-              }}
+              onClick={logout}
             >
               Logout
               <LogOut className="h-4 w-4 text-white/60" />

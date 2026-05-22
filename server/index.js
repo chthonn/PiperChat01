@@ -14,6 +14,7 @@ import profileRoutes from "./routes/profile.js";
 import serversRoutes from "./routes/servers.js";
 import { attachSocketHandlers } from "./socket/index.js";
 import { setIO } from "./socket/runtime.js";
+import { verifyMailTransport } from "./services/email.js";
 
 const port = process.env.PORT || 2000;
 const app = express();
@@ -39,6 +40,7 @@ app.use("/", profileRoutes);
 
 async function start() {
   await connect();
+  await verifyMailTransport();
   const server = app.listen(port, () => {
     console.log(`listening on port ${port}`);
     console.log("Connected to DB");

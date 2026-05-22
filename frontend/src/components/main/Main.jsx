@@ -13,6 +13,8 @@ import { X } from "lucide-react";
 
 function Main({user_relations}) {
   const dispatch = useDispatch()
+  const notificationPrefs = useSelector((state) => state.user_info.notification_preferences);
+  const canReceiveFriendRequests = notificationPrefs?.friend_requests ?? true;
   const id = useSelector(state => state.user_info.id)
   const activeDirectMessage = useSelector(
     (state) => state.direct_message.activeFriend
@@ -39,6 +41,7 @@ function Main({user_relations}) {
 
   useEffect(() => {
     const handleReceiveReq = (message) => {
+      if (!canReceiveFriendRequests) return;
       const {sender_name , sender_profile_pic , sender_id} =  message
       setreq_popup_data({name:sender_name , profile_pic:sender_profile_pic , id:sender_id , notif_message:'Sent you a friend Request'})
       setreq_popup({state:'flex' , value:true})
@@ -63,7 +66,7 @@ function Main({user_relations}) {
       socket.off('req_accepted_notif', handleAcceptedReq);
       socket.off('request_updated', handleRequestUpdated);
     };
-  }, [dispatch]);
+  }, [dispatch, canReceiveFriendRequests]);
 
     
   return (

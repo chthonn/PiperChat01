@@ -3,12 +3,24 @@ import jwt from "jsonwebtoken";
 
 import Chat from "../models/Chat.js";
 import Server from "../models/Server.js";
+import User from "../models/User.js";
 import * as cache from "../lib/cache.js";
 import { getChats } from "../services/chatService.js";
 import { incrementServerUnread } from "../services/unreadService.js";
 import { getIO } from "../socket/runtime.js";
 
 const router = express.Router();
+
+async function shouldSendNotification(userId, preferenceKey) {
+  try {
+    const user = await User.findById(userId).lean();
+    if (!user) return false;
+    const prefs = user.notification_preferences || {};
+    return prefs[preferenceKey] !== false;
+  } catch {
+    return true;
+  }
+}
 
 function getAuthorizedUser(req, res) {
   try {
@@ -59,12 +71,15 @@ router.post("/store_message", async (req, res) => {
     );
     for (const recipient of recipients) {
       await incrementServerUnread(recipient.user_id, server_id, channel_id);
-      io.to(recipient.user_id).emit("server_message_notification", {
-        server_id,
-        channel_id,
-        channel_name,
-        sender_name: username,
-      });
+      const shouldNotify = await shouldSendNotification(recipient.user_id, "server_messages");
+      if (shouldNotify) {
+        io.to(recipient.user_id).emit("server_message_notification", {
+          server_id,
+          channel_id,
+          channel_name,
+          sender_name: username,
+        });
+      }
     }
   }
 

@@ -8,10 +8,10 @@ function Navbar2_dashboard({ friends = [], onNavigate }) {
   const dispatch = useDispatch();
   const unreadDm = useSelector((state) => state.unread.dm);
   const onlineUsers = useSelector((state) => state.presence.byId);
-  const profile_pic = resolveProfilePic(
-    useSelector((state) => state.user_info.profile_pic),
-    "Dummy friend"
-  );
+  
+  const username = useSelector((state) => state.user_info.username);
+  const rawProfilePic = useSelector((state) => state.user_info.profile_pic);
+  const profile_pic = resolveProfilePic(rawProfilePic, username);
 
   return (
     <div className="flex h-full flex-col">

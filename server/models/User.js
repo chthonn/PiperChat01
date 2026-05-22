@@ -64,6 +64,12 @@ const userSchema = new mongoose.Schema(
         timestamp: String,
       },
     ],
+    notification_preferences: {
+      direct_messages: Boolean,
+      friend_requests: Boolean,
+      server_messages: Boolean,
+      server_invites: Boolean,
+    },
   },
   { typeKey: "$type" }
 );

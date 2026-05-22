@@ -1,4 +1,17 @@
+import User from "../models/User.js";
+
 const onlineUsers = new Map();
+
+async function shouldSendNotification(userId, preferenceKey) {
+  try {
+    const user = await User.findById(userId).lean();
+    if (!user) return false;
+    const prefs = user.notification_preferences || {};
+    return prefs[preferenceKey] !== false;
+  } catch {
+    return true;
+  }
+}
 
 function emitPresenceSnapshot(socket) {
   socket.emit("presence_snapshot", {
@@ -77,12 +90,15 @@ function attachSocketHandlers(io) {
 
     socket.on(
       "send_req",
-      (receiver_id, sender_id, sender_profile_pic, sender_name) => {
-        socket.to(receiver_id).emit("recieve_req", {
-          sender_name: sender_name,
-          sender_profile_pic: sender_profile_pic,
-          sender_id,
-        });
+      async (receiver_id, sender_id, sender_profile_pic, sender_name) => {
+        const shouldNotify = await shouldSendNotification(receiver_id, "friend_requests");
+        if (shouldNotify) {
+          socket.to(receiver_id).emit("recieve_req", {
+            sender_name: sender_name,
+            sender_profile_pic: sender_profile_pic,
+            sender_id,
+          });
+        }
       },
     );
 
@@ -160,6 +176,14 @@ function attachSocketHandlers(io) {
         });
       },
     );
+
+    socket.on("dm_typing", ({ to }) => {
+      socket.to(String(to)).emit("dm_typing", { from: socket.data.user_id });
+    });
+
+    socket.on("dm_stop_typing", ({ to }) => {
+      socket.to(String(to)).emit("dm_stop_typing", { from: socket.data.user_id });
+    });
 
     socket.on("disconnect", () => {
       setUserOffline(io, socket.data.user_id, socket.id);

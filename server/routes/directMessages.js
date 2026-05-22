@@ -9,6 +9,17 @@ import { getIO } from "../socket/runtime.js";
 
 const router = express.Router();
 
+async function shouldSendNotification(userId, preferenceKey) {
+  try {
+    const user = await User.findById(userId).lean();
+    if (!user) return false;
+    const prefs = user.notification_preferences || {};
+    return prefs[preferenceKey] !== false;
+  } catch {
+    return true;
+  }
+}
+
 function getAuthorizedUser(req, res) {
   try {
     return jwt.verify(req.headers["x-auth-token"], process.env.ACCESS_TOKEN);
@@ -123,10 +134,13 @@ router.post("/send_direct_message", async (req, res) => {
       content: message.content,
       timestamp: message.timestamp,
     });
-    io.to(friendUserId).emit("direct_message_notification", {
-      friend_id: currentUserId,
-      sender_name: currentUser.username,
-    });
+    const shouldNotify = await shouldSendNotification(friendUserId, "direct_messages");
+    if (shouldNotify) {
+      io.to(friendUserId).emit("direct_message_notification", {
+        friend_id: currentUserId,
+        sender_name: currentUser.username,
+      });
+    }
   }
 
   return res.status(200).json({

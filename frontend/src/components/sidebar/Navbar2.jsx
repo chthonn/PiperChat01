@@ -12,10 +12,8 @@ function Navbar2({ friends, onNavigate }) {
   // user details from redux
   const username = useSelector((state) => state.user_info.username);
   const tag = useSelector((state) => state.user_info.tag);
-  const profile_pic = resolveProfilePic(
-    useSelector((state) => state.user_info.profile_pic),
-    username
-  );
+  const rawProfilePic = useSelector((state) => state.user_info.profile_pic);
+  const profile_pic = resolveProfilePic(rawProfilePic, username);
 
   function footerButton(label, Icon) {
     return (

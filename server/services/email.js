@@ -1,49 +1,84 @@
 import nodemailer from "nodemailer";
+import {
+  getMailUser,
+  getOAuthClientId,
+  hasGmailOAuthCredentials,
+} from "../lib/gmailOAuth.js";
+import { sendOtpViaGmailApi, verifyGmailApi } from "./gmailApiMail.js";
 
-const emailUser = process.env.EMAIL_USER || process.env.MAIL_USER;
+const MAIL_MODES = {
+  CONSOLE: "console",
+  GMAIL_API: "gmail_api",
+  PASSWORD: "password",
+  SMTP: "smtp",
+  NONE: "none",
+};
 
-function createTransporter() {
-  if (process.env.MAIL_TRANSPORT === "console") {
-    return null;
-  }
+function hasSmtpCredentials() {
+  const smtpHost = process.env.SMTP_HOST?.trim();
+  const smtpUser = (process.env.SMTP_USER || getMailUser()).trim();
+  const smtpPass = (process.env.SMTP_PASS || process.env.MAIL_PASS || "").trim();
+  return Boolean(smtpHost && smtpUser && smtpPass);
+}
 
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpPort = process.env.SMTP_PORT
-    ? Number(process.env.SMTP_PORT)
-    : undefined;
-  const smtpUser = process.env.SMTP_USER || emailUser;
-  const smtpPass = process.env.SMTP_PASS || process.env.MAIL_PASS;
+function hasPasswordCredentials() {
+  return Boolean(getMailUser() && process.env.MAIL_PASS?.trim());
+}
 
-  if (smtpHost && smtpUser && smtpPass) {
-    return nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort || 587,
-      secure: Boolean(process.env.SMTP_SECURE) || (smtpPort === 465),
-      auth: { user: smtpUser, pass: smtpPass },
-    });
-  }
+/**
+ * gmail_api = Gmail REST API over HTTPS (port 443) — use in production.
+ * Nodemailer still uses SMTP and may ETIMEDOUT on cloud hosts that block outbound SMTP.
+ */
+export function resolveMailMode() {
+  const requested = (process.env.MAIL_TRANSPORT || "auto").trim().toLowerCase();
 
-  if (emailUser && process.env.MAIL_PASS) {
-    return nodemailer.createTransport({
-      service: "gmail",
-      auth: { user: emailUser, pass: process.env.MAIL_PASS },
-    });
-  }
+  if (requested === "console") return MAIL_MODES.CONSOLE;
 
   if (
-    emailUser &&
-    process.env.OAUTH_CLIENTID &&
-    process.env.OAUTH_CLIENT_SECRET &&
-    process.env.OAUTH_REFRESH_TOKEN
+    requested === "gmail_api" ||
+    requested === "gmail_oauth2" ||
+    requested === "oauth2"
   ) {
+    return hasGmailOAuthCredentials() ? MAIL_MODES.GMAIL_API : MAIL_MODES.NONE;
+  }
+
+  if (requested === "gmail" || requested === "gmail_password" || requested === "password") {
+    return hasPasswordCredentials() ? MAIL_MODES.PASSWORD : MAIL_MODES.NONE;
+  }
+
+  if (requested === "smtp") {
+    return hasSmtpCredentials() ? MAIL_MODES.SMTP : MAIL_MODES.NONE;
+  }
+
+  // auto: Gmail API when OAuth is configured , else local SMTP/password
+  if (hasGmailOAuthCredentials()) return MAIL_MODES.GMAIL_API;
+  if (hasSmtpCredentials()) return MAIL_MODES.SMTP;
+  if (hasPasswordCredentials()) return MAIL_MODES.PASSWORD;
+  return MAIL_MODES.NONE;
+}
+
+function createNodemailerTransporter(mode) {
+  if (mode === MAIL_MODES.PASSWORD) {
     return nodemailer.createTransport({
       service: "gmail",
+      auth: { user: getMailUser(), pass: process.env.MAIL_PASS.trim() },
+    });
+  }
+
+  if (mode === MAIL_MODES.SMTP) {
+    const smtpPort = process.env.SMTP_PORT
+      ? Number(process.env.SMTP_PORT)
+      : undefined;
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST.trim(),
+      port: smtpPort || 587,
+      secure:
+        process.env.SMTP_SECURE === "true" ||
+        process.env.SMTP_SECURE === "1" ||
+        smtpPort === 465,
       auth: {
-        type: "OAuth2",
-        user: emailUser,
-        clientId: process.env.OAUTH_CLIENTID,
-        clientSecret: process.env.OAUTH_CLIENT_SECRET,
-        refreshToken: process.env.OAUTH_REFRESH_TOKEN,
+        user: (process.env.SMTP_USER || getMailUser()).trim(),
+        pass: (process.env.SMTP_PASS || process.env.MAIL_PASS).trim(),
       },
     });
   }
@@ -51,29 +86,91 @@ function createTransporter() {
   return null;
 }
 
-async function sendMail(otp, mailValue, nameValue) {
-  const transporter = createTransporter();
+function buildNodemailerOptions(to, name, otp) {
+  const fromAddress = getMailUser();
+  const displayName = name || "there";
+  return {
+    from: `"PiperChat" <${fromAddress}>`,
+    to,
+    subject: "Your PiperChat verification code",
+    text: `Hello ${displayName},\n\nYour PiperChat verification code is: ${otp}\n`,
+    html: `<p>Hello ${displayName},</p><p>Your verification code: <strong>${otp}</strong></p>`,
+  };
+}
 
-  if (!transporter) {
-    console.warn("[email] Mail not configured; unable to send verification email.");
-    return { ok: false, reason: "mail_not_configured" };
+export async function verifyMailTransport() {
+  const mode = resolveMailMode();
+
+  if (mode === MAIL_MODES.CONSOLE) {
+    console.log("[email] MAIL_TRANSPORT=console — OTP emails are logged only.");
+    return { ok: true, mode };
   }
 
-  const mailOptions = {
-    from: emailUser,
-    to: mailValue,
-    subject: "Email for Verification",
-    text: `Hello ${nameValue}
-    You registered an account on PiperChat, Here is your otp for verification - ${otp}
-    Kind Regards, Sunil Kumar`,
-  };
+  if (mode === MAIL_MODES.NONE) {
+    console.warn(
+      "[email] Not configured. Set MAIL_TRANSPORT=gmail_api and Gmail OAuth env vars."
+    );
+    return { ok: false, mode, reason: "mail_not_configured" };
+  }
+
+  if (mode === MAIL_MODES.GMAIL_API) {
+    const result = await verifyGmailApi();
+    if (result.ok) {
+      console.log(`[email] Gmail API ready as ${result.address}`);
+      return { ok: true, mode };
+    }
+    console.error(`[email] Gmail API verification failed: ${result.reason}`);
+    if (result.hint) console.error(`[email] ${result.hint}`);
+    return { ok: false, mode, ...result };
+  }
+
+  const transporter = createNodemailerTransporter(mode);
+  try {
+    await transporter.verify();
+    console.log(`[email] SMTP ready (${mode}) as ${getMailUser()}`);
+    return { ok: true, mode };
+  } catch (error) {
+    console.error(`[email] SMTP verify failed (${mode}):`, error.message);
+    if (error.code === "ETIMEDOUT") {
+      console.error(
+        "[email] SMTP is blocked on this host. Use MAIL_TRANSPORT=gmail_api with OAuth2."
+      );
+    }
+    return { ok: false, mode, reason: "verify_failed" };
+  }
+}
+
+async function sendMail(otp, mailValue, nameValue) {
+  const mode = resolveMailMode();
+
+  if (mode === MAIL_MODES.CONSOLE) {
+    console.log(`[email:console] OTP for ${mailValue}: ${otp}`);
+    return { ok: true, mode, simulated: true };
+  }
+
+  if (mode === MAIL_MODES.GMAIL_API) {
+    return sendOtpViaGmailApi(otp, mailValue, nameValue);
+  }
+
+  const transporter = createNodemailerTransporter(mode);
+  if (!transporter) {
+    console.warn("[email] Mail not configured.");
+    return { ok: false, reason: "mail_not_configured", mode };
+  }
 
   try {
-    const info = await transporter.sendMail(mailOptions);
-    return { ok: true, info };
+    const info = await transporter.sendMail(
+      buildNodemailerOptions(mailValue, nameValue, otp)
+    );
+    return { ok: true, mode, messageId: info.messageId };
   } catch (error) {
-    console.error("Error sending email:", error);
-    return { ok: false, reason: "send_failed" };
+    console.error(`[email] Send failed (${mode}):`, error.message);
+    if (error.code === "ETIMEDOUT") {
+      console.error(
+        "[email] Use MAIL_TRANSPORT=gmail_api (SMTP ports are often blocked in production)."
+      );
+    }
+    return { ok: false, reason: "send_failed", mode, error: error.message };
   }
 }
 
@@ -86,4 +183,4 @@ function generateOTP() {
   return otp;
 }
 
-export { sendMail, generateOTP };
+export { sendMail, generateOTP, MAIL_MODES };

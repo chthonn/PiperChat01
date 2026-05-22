@@ -1,5 +1,6 @@
 import express from "express";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
 import { buildAuthUserJwtPayload } from "../lib/authJwtPayload.js";
 import { authToken } from "../middleware/auth.js";
@@ -97,12 +98,7 @@ async function propagateUserIdentity({ userId, username, profile_pic }) {
 
 router.patch("/profile", authToken, async (req, res) => {
   try {
-    const decoded = jwt.verify(
-      req.headers["x-auth-token"],
-      process.env.ACCESS_TOKEN
-    );
-
-    const userId = decoded?.id;
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized", status: 401 });
     }
@@ -171,6 +167,99 @@ router.patch("/profile", authToken, async (req, res) => {
         tag: updated.tag,
         profile_pic: updated.profile_pic,
       },
+    });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error", status: 500 });
+  }
+});
+
+router.patch("/profile/password", authToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized", status: 401 });
+    }
+
+    const { current_password, new_password } = req.body;
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({
+        message: "Current password and new password are required.",
+        status: 400,
+      });
+    }
+
+    if (typeof new_password !== "string" || new_password.length < 6) {
+      return res.status(400).json({
+        message: "New password must be at least 6 characters.",
+        status: 400,
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found", status: 404 });
+    }
+
+    const isMatch = await bcrypt.compare(current_password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Current password is incorrect.",
+        status: 400,
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+    await User.findByIdAndUpdate(userId, { password: hashedPassword });
+
+    return res.status(200).json({
+      status: 200,
+      message: "Password updated successfully",
+    });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error", status: 500 });
+  }
+});
+
+router.patch("/profile/notifications", authToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized", status: 401 });
+    }
+
+    const { direct_messages, friend_requests, server_messages, server_invites } = req.body;
+
+    const $set = {};
+    if (direct_messages !== undefined) $set["notification_preferences.direct_messages"] = Boolean(direct_messages);
+    if (friend_requests !== undefined) $set["notification_preferences.friend_requests"] = Boolean(friend_requests);
+    if (server_messages !== undefined) $set["notification_preferences.server_messages"] = Boolean(server_messages);
+    if (server_invites !== undefined) $set["notification_preferences.server_invites"] = Boolean(server_invites);
+
+    if (Object.keys($set).length === 0) {
+      return res.status(400).json({ message: "No preferences provided", status: 400 });
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set },
+      { returnDocument: "after" }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "User not found", status: 404 });
+    }
+
+    const token = jwt.sign(
+      buildAuthUserJwtPayload(updated),
+      process.env.ACCESS_TOKEN,
+    );
+
+    return res.status(200).json({
+      status: 200,
+      message: "Notification preferences updated",
+      notification_preferences: updated.notification_preferences,
+      token,
     });
   } catch (err) {
     return res.status(500).json({ message: "Server error", status: 500 });

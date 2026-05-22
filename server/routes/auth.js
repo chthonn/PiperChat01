@@ -46,6 +46,18 @@ async function verifyStoredPassword(plainPassword, storedPassword) {
   return constantTimeStringEqual(plainPassword, storedPassword);
 }
 
+function generateAvatar(username) {
+  try {
+    const seed = `${username || "user"}-${Date.now()}`;
+
+    return `${process.env.DICEBEAR_API}/${process.env.DICEBEAR_STYLE}/svg?seed=${encodeURIComponent(seed)}`;
+  } catch (error) {
+    console.error("Avatar generation error:", error.message);
+
+    return process.env.DEFAULT_PROFILE_PIC;
+  }
+}
+
 router.post("/verify_route", authToken, (req, res) => {
   res.status(201).json({ message: "authorized", status: 201 });
 });
@@ -77,11 +89,10 @@ router.post("/signup", async (req, res) => {
     const usernameResponse = await isUsernameAvailable(username);
     const finalTag = usernameResponse.final_tag;
 
-
     const newUser = new User({
       username,
       tag: finalTag,
-      profile_pic: process.env.default_profile_pic,
+      profile_pic: generateAvatar(username),
       email,
       password: hashedPassword,
       dob,
@@ -118,19 +129,12 @@ router.post("/signup", async (req, res) => {
       },
     };
     let otp = response.message === "not_TLE" ? response.otp : generateOTP();
-    const newResponse = await updatingCreds(
-      accountCreds,
-      otp,
-      email,
-      username
-    );
-    return res
-      .status(newResponse.status)
-      .json({
-        message: newResponse.message,
-        status: newResponse.status,
-        email_sent: Boolean(newResponse.mailResult?.ok),
-      });
+    const newResponse = await updatingCreds(accountCreds, otp, email, username);
+    return res.status(newResponse.status).json({
+      message: newResponse.message,
+      status: newResponse.status,
+      email_sent: Boolean(newResponse.mailResult?.ok),
+    });
   }
 
   if (response.message === "not_TLE_2" || response.message === "TLE") {
@@ -160,26 +164,17 @@ router.post("/signup", async (req, res) => {
           password: hashedPassword,
           dob,
           authorized,
-          verification: [
-            { timestamp: Date.now(), code: otp },
-          ],
+          verification: [{ timestamp: Date.now(), code: otp }],
         },
       };
     }
 
-    const newResponse = await updatingCreds(
-      accountCreds,
-      otp,
-      email,
-      username
-    );
-    return res
-      .status(newResponse.status)
-      .json({
-        message: newResponse.message,
-        status: newResponse.status,
-        email_sent: Boolean(newResponse.mailResult?.ok),
-      });
+    const newResponse = await updatingCreds(accountCreds, otp, email, username);
+    return res.status(newResponse.status).json({
+      message: newResponse.message,
+      status: newResponse.status,
+      email_sent: Boolean(newResponse.mailResult?.ok),
+    });
   }
 });
 
@@ -215,7 +210,7 @@ router.post("/verify", async (req, res) => {
         $set: {
           verification: [{ timestamp: Date.now(), code: otp }],
         },
-      }
+      },
     );
     await sendMail(otp, email, username);
     return res.status(442).json({ error: "otp changed", status: 442 });
@@ -240,7 +235,7 @@ router.post("/resend_otp", async (req, res) => {
     const otp = generateOTP();
     await User.updateOne(
       { email },
-      { $set: { verification: [{ timestamp: Date.now(), code: otp }] } }
+      { $set: { verification: [{ timestamp: Date.now(), code: otp }] } },
     );
     const mailResult = await sendMail(otp, email, username);
     return res.status(201).json({
@@ -277,7 +272,7 @@ router.post("/signin", async (req, res) => {
 
     const validPassword = await verifyStoredPassword(
       plainPassword,
-      user.password
+      user.password,
     );
 
     if (!validPassword) {
@@ -299,7 +294,7 @@ router.post("/signin", async (req, res) => {
 
     const token = jwt.sign(
       buildAuthUserJwtPayload(user),
-      process.env.ACCESS_TOKEN
+      process.env.ACCESS_TOKEN,
     );
     return res
       .status(201)
