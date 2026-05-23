@@ -38,6 +38,14 @@ function ValidChat() {
         server_id: server_id
       })
     }
+    return () => {
+      if (socket && channel_id) {
+        socket.emit("leave_chat", {
+          channel_id: channel_id,
+          server_id: server_id
+        })
+      }
+    }
   }, [channel_id,server_id]);
 
   const sendNow = async () => {
@@ -49,26 +57,30 @@ function ValidChat() {
   };
 
   const store_message = async (chat_message, timestamp) => {
-    const res = await fetch(`${url}/chat/store_message`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-auth-token": localStorage.getItem("token"),
-      },
-      body: JSON.stringify({
-        message: chat_message,
-        server_id,
-        channel_id,
-        channel_name,
-        timestamp,
-        username,
-        tag,
-        id,
-        profile_pic,
-      }),
-    });
-    const data = await res.json();
-    if (data.status !== 200) {
+    try {
+      const res = await fetch(`${url}/chat/store_message`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": localStorage.getItem("token"),
+        },
+        body: JSON.stringify({
+          message: chat_message,
+          server_id,
+          channel_id,
+          channel_name,
+          timestamp,
+          username,
+          tag,
+          id,
+          profile_pic,
+        }),
+      });
+      const data = await res.json();
+      if (data.status !== 200) {
+        setchat_message(chat_message);
+      }
+    } catch {
       setchat_message(chat_message);
     }
   };
@@ -90,8 +102,7 @@ function ValidChat() {
       });
       get_messages();
     }
-    // eslint-disable-next-line
-  }, [channel_id]);
+  }, [channel_id, server_id]);
 
   const get_messages = async () => {
     try {
@@ -123,60 +134,72 @@ function ValidChat() {
   };
 
   const editMessage = async (message) => {
-    const res = await fetch(`${url}/chat/edit_server_message`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-auth-token": localStorage.getItem("token"),
-      },
-      body: JSON.stringify({
-        server_id,
-        channel_id,
-        timestamp: message.timestamp,
-        content: editingContent,
-      }),
-    });
-    const data = await res.json();
-    if (data.status === 200) {
-      setall_messages((currentMessages) =>
-        currentMessages.map((entry) =>
-          String(entry.timestamp) === String(message.timestamp) &&
-          entry.sender_id === id
-            ? { ...entry, content: editingContent.trim() }
-            : entry
-        )
-      );
+    try {
+      const res = await fetch(`${url}/chat/edit_server_message`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": localStorage.getItem("token"),
+        },
+        body: JSON.stringify({
+          server_id,
+          channel_id,
+          timestamp: message.timestamp,
+          content: editingContent,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === 200) {
+        setall_messages((currentMessages) =>
+          currentMessages.map((entry) =>
+            String(entry.timestamp) === String(message.timestamp) &&
+            entry.sender_id === id
+              ? { ...entry, content: editingContent.trim() }
+              : entry
+          )
+        );
+        setEditingTimestamp(null);
+        setEditingContent("");
+      }
+    } catch {
       setEditingTimestamp(null);
       setEditingContent("");
     }
   };
 
   const deleteMessage = async (message) => {
-    const res = await fetch(`${url}/chat/delete_server_message`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-auth-token": localStorage.getItem("token"),
-      },
-      body: JSON.stringify({
-        server_id,
-        channel_id,
-        timestamp: message.timestamp,
-      }),
-    });
-    const data = await res.json();
-    if (data.status === 200) {
-      setall_messages((currentMessages) =>
-        currentMessages.filter(
-          (entry) =>
-            !(String(entry.timestamp) === String(message.timestamp) && entry.sender_id === id)
-        )
-      );
+    try {
+      const res = await fetch(`${url}/chat/delete_server_message`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": localStorage.getItem("token"),
+        },
+        body: JSON.stringify({
+          server_id,
+          channel_id,
+          timestamp: message.timestamp,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === 200) {
+        setall_messages((currentMessages) =>
+          currentMessages.filter(
+            (entry) =>
+              !(String(entry.timestamp) === String(message.timestamp) && entry.sender_id === id)
+          )
+        );
+      }
+    } catch {
+      // silently fail
     }
   };
 
   useEffect(() => {
     const handleReceiveMessage = (messageData) => {
+      if (String(messageData.channel_id) !== String(channel_id)) {
+        return;
+      }
       setall_messages((currentMessages) => {
         const existingMessages = currentMessages || [];
         const alreadyExists = existingMessages.some(
@@ -194,6 +217,9 @@ function ValidChat() {
     };
 
     const handleUpdatedMessage = (message_data) => {
+      if (String(message_data.channel_id) !== String(channel_id)) {
+        return;
+      }
       setall_messages((currentMessages) =>
         (currentMessages || []).map((entry) =>
           String(entry.timestamp) === String(message_data.timestamp) &&
@@ -205,6 +231,9 @@ function ValidChat() {
     };
 
     const handleDeletedMessage = (message_data) => {
+      if (String(message_data.channel_id) !== String(channel_id)) {
+        return;
+      }
       setall_messages((currentMessages) =>
         (currentMessages || []).filter(
           (entry) =>
@@ -225,7 +254,7 @@ function ValidChat() {
       socket.off("server_message_updated", handleUpdatedMessage);
       socket.off("server_message_deleted", handleDeletedMessage);
     };
-  }, []);
+  }, [channel_id]);
 
   return (
     <div className="flex h-full min-w-0 flex-col">
