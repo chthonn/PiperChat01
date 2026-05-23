@@ -47,6 +47,7 @@ router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
     tag,
     id,
     profile_pic,
+    replyTo,
   } = req.body;
 
   const chatMessage = {
@@ -56,6 +57,8 @@ router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
     sender_pic: profile_pic,
     sender_tag: tag,
     timestamp,
+    replyTo: replyTo || null,
+    isPinned: false,
   };
 
   const response = await Chat.find({
@@ -294,6 +297,56 @@ router.post("/delete_server_message", async (req, res) => {
     logger.error(`Error deleting message: ${error.message}`);
     res.status(500).json({ status: 500, message: "Failed to delete message" });
   }
+});
+
+router.post("/toggle_pin_message", async (req, res) => {
+  const { server_id, channel_id, timestamp } = req.body;
+  const user = getAuthorizedUser(req, res);
+  if (!user) return;
+
+  if (!server_id || !channel_id || !timestamp) {
+    return res.status(400).json({ status: 400, message: "Invalid input" });
+  }
+
+  const chatDoc = await Chat.findOne({
+    server_id,
+    "channels.channel_id": channel_id,
+  });
+
+  if (!chatDoc) {
+    return res.status(404).json({ status: 404, message: "Chat not found" });
+  }
+
+  const channel = chatDoc.channels.find(
+    (entry) => entry.channel_id === channel_id
+  );
+
+  const message = channel?.chat_details.find(
+    (entry) => String(entry.timestamp) === String(timestamp)
+  );
+
+  if (!message) {
+    return res.status(404).json({ status: 404, message: "Message not found" });
+  }
+
+  message.isPinned = !message.isPinned;
+
+  await chatDoc.save();
+  await cache.del(`chat:${server_id}:${channel_id}`);
+
+  const io = getIO();
+  if (io) {
+    io.to(`channel:${channel_id}`).emit("server_message_pin_updated", {
+      timestamp,
+      isPinned: message.isPinned,
+    });
+  }
+
+  return res.status(200).json({
+    status: 200,
+    message: "Pin status updated",
+    isPinned: message.isPinned,
+  });
 });
 
 export default router;

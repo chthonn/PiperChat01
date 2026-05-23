@@ -73,7 +73,7 @@ router.post("/send_direct_message", async (req, res) => {
     return;
   }
 
-  const { friend_id, content } = req.body;
+  const { friend_id, content, replyTo } = req.body;
 
   if (!friend_id || !content || !content.trim()) {
     return res.status(400).json({ message: "Invalid input", status: 400 });
@@ -101,6 +101,8 @@ router.post("/send_direct_message", async (req, res) => {
     sender_pic: currentUser.profile_pic,
     content: content.trim(),
     timestamp: Date.now(),
+    replyTo: replyTo || null,
+    isPinned: false,
   };
 
   const participants = getThreadParticipants(currentUserId, friendUserId);
@@ -126,6 +128,8 @@ router.post("/send_direct_message", async (req, res) => {
       sender_pic: currentUser.profile_pic,
       content: message.content,
       timestamp: message.timestamp,
+      replyTo: message.replyTo,
+      isPinned: message.isPinned,
     });
     io.to(currentUserId).emit("direct_message_received", {
       friend_id: friendUserId,
@@ -135,6 +139,8 @@ router.post("/send_direct_message", async (req, res) => {
       sender_pic: currentUser.profile_pic,
       content: message.content,
       timestamp: message.timestamp,
+      replyTo: message.replyTo,
+      isPinned: message.isPinned,
     });
     const shouldNotify = await shouldSendNotification(friendUserId, "direct_messages");
     if (shouldNotify) {
@@ -246,6 +252,58 @@ router.post("/delete_direct_message", async (req, res) => {
   }
 
   return res.status(200).json({ status: 200, message: "Message deleted" });
+});
+
+router.post("/toggle_pin_direct_message", async (req, res) => {
+  const user = getAuthorizedUser(req, res);
+  if (!user) return;
+
+  const { friend_id, timestamp } = req.body;
+
+  if (!friend_id || !timestamp) {
+    return res.status(400).json({ status: 400, message: "Invalid input" });
+  }
+
+  const participants = getThreadParticipants(user.id, friend_id);
+  const thread = await DirectMessageThread.findOne({ participants });
+
+  if (!thread) {
+    return res.status(404).json({ status: 404, message: "Thread not found" });
+  }
+
+  const message = thread.messages.find(
+    (entry) => String(entry.timestamp) === String(timestamp)
+  );
+
+  if (!message) {
+    return res.status(404).json({ status: 404, message: "Message not found" });
+  }
+
+  message.isPinned = !message.isPinned;
+
+  await thread.save();
+  await cache.del(`dm:${participants[0]}:${participants[1]}`);
+
+  const io = getIO();
+  if (io) {
+    io.to(friend_id).emit("direct_message_pin_updated", {
+      friend_id: user.id,
+      timestamp,
+      isPinned: message.isPinned,
+    });
+
+    io.to(user.id).emit("direct_message_pin_updated", {
+      friend_id,
+      timestamp,
+      isPinned: message.isPinned,
+    });
+  }
+
+  return res.status(200).json({
+    status: 200,
+    message: "Pin status updated",
+    isPinned: message.isPinned,
+  });
 });
 
 export default router;
