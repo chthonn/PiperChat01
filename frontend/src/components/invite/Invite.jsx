@@ -19,12 +19,7 @@ function Invite() {
   const [invalid_invite_link, setinvalid_invite_link] = useState(null);
 
 const [already_member, setAlreadyMember] = useState(false);   // 403 from backend
-  const [accept_failed, setAcceptFailed] = useState(false);
-  const [accepting, setAccepting] = useState(false);
-
   const accept_invite = async () => {
-    setAccepting(true);
-    setAcceptFailed(false);
     setAlreadyMember(false);
 
     try {
@@ -45,13 +40,9 @@ const [already_member, setAlreadyMember] = useState(false);   // 403 from backen
         navigate("/channels/@me", { replace: true });
       } else if (data.status === 403) {
         setAlreadyMember(true);
-      } else {
-        setAcceptFailed(true);
       }
     } catch {
-      setAcceptFailed(true);
-    } finally {
-      setAccepting(false);
+      return;
     }
   };
 
