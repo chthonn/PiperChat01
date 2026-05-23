@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Hash, Pencil, Trash2, Save, SendHorizontal, Loader2, AlertCircle } from "lucide-react";
 import socket from "../../socket/Socket";
@@ -28,6 +28,12 @@ function ValidChat() {
   const [all_messages, setall_messages] = useState([]);
   const [editingTimestamp, setEditingTimestamp] = useState(null);
   const [editingContent, setEditingContent] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(null);
+  const emojiPickerRef = useRef(null);
+
+  useEffect(() => {
+    setShowEmojiPicker(null);
+  }, [channel_id]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -151,6 +157,24 @@ function ValidChat() {
     }
   };
 
+  const toggleReaction = async (message, emoji) => {
+    const res = await fetch(`${url}/chat/toggle_reaction`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-auth-token": localStorage.getItem("token"),
+      },
+      body: JSON.stringify({
+        server_id,
+        channel_id,
+        timestamp: message.timestamp,
+        emoji,
+      }),
+    });
+    await res.json();
+    setShowEmojiPicker(null);
+  };
+
   const deleteMessage = async (message) => {
     const res = await fetch(`${url}/chat/delete_server_message`, {
       method: "POST",
@@ -216,11 +240,23 @@ function ValidChat() {
       );
     };
     //earlier it was server_message_receive which was wrong
+    const handleReactionUpdated = ({ timestamp, reactions }) => {
+      setall_messages((currentMessages) =>
+        (currentMessages || []).map((entry) =>
+          String(entry.timestamp) === String(timestamp)
+            ? { ...entry, reactions }
+            : entry
+        )
+      );
+    };
+
+    socket.on("reaction_updated", handleReactionUpdated);
     socket.on("server_message_received", handleReceiveMessage);
     socket.on("server_message_updated", handleUpdatedMessage);
     socket.on("server_message_deleted", handleDeletedMessage);
 
     return () => {
+      socket.off("reaction_updated", handleReactionUpdated);
       socket.off("server_message_received", handleReceiveMessage);
       socket.off("server_message_updated", handleUpdatedMessage);
       socket.off("server_message_deleted", handleDeletedMessage);
@@ -304,8 +340,34 @@ function ValidChat() {
                     <div className="text-[10px] leading-none text-white/35">
                       {timestamp}
                     </div>
+                    <div className="ml-auto flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
+                          onClick={() => setShowEmojiPicker(showEmojiPicker === elem.timestamp ? null : elem.timestamp)}
+                          title="React"
+                          aria-label="React"
+                        >
+                          😊
+                        </button>
+                        {showEmojiPicker === elem.timestamp && (
+                          <div ref={emojiPickerRef} className="absolute bottom-full right-0 z-50 mb-1 flex gap-1 rounded-xl border border-white/10 bg-[#1e1f22] p-2 shadow-xl">
+                            {["👍","❤️","😂","😮","😢","🔥","🎉","👀"].map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                className="rounded-lg p-1 text-lg transition hover:bg-white/10"
+                                onClick={() => toggleReaction(elem, emoji)}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     {mine ? (
-                      <div className="ml-auto flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                      <div className="flex items-center gap-1">
                         <button
                           type="button"
                           className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
@@ -329,8 +391,27 @@ function ValidChat() {
                         </button>
                       </div>
                     ) : null}
+                    </div>
                   </div>
 
+                  {(Array.isArray(elem.reactions) && elem.reactions.length > 0) && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {elem.reactions.map((r) => (
+                        <button
+                          key={r.emoji}
+                          type="button"
+                          onClick={() => toggleReaction(elem, r.emoji)}
+                          className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
+                            r.users.includes(id)
+                              ? "border-brand-300/50 bg-brand-300/20 text-brand-300"
+                              : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                          }`}
+                        >
+                          {r.emoji} {r.users.length}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {isEditing ? (
                     <div className="mt-2 flex items-center gap-2">
                       <Input

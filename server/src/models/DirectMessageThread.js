@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-
 const directMessageThreadSchema = new mongoose.Schema({
   participants: [String],
   messages: [
@@ -10,8 +9,13 @@ const directMessageThreadSchema = new mongoose.Schema({
       sender_pic: String,
       content: String,
       timestamp: Number,
+      reactions: [
+        {
+          emoji: String,
+          users: [String],
+        },
+      ],
     },
   ],
 });
-
 export default mongoose.model("direct_message_threads", directMessageThreadSchema);
