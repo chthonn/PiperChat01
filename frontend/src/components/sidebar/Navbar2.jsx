@@ -13,6 +13,7 @@ function Navbar2({ friends, onNavigate }) {
   const username = useSelector((state) => state.user_info.username);
   const tag = useSelector((state) => state.user_info.tag);
   const rawProfilePic = useSelector((state) => state.user_info.profile_pic);
+  const isInvisible = useSelector((state) => state.user_info.invisible_mode);
   const profile_pic = resolveProfilePic(rawProfilePic, username);
 
   function footerButton(label, Icon) {
@@ -50,7 +51,7 @@ function Navbar2({ friends, onNavigate }) {
               onError={handleImageError}
             />
           </div>
-          <span className="absolute -bottom-0.5 -right-0.5 z-10 h-3.5 w-3.5 rounded-full border-2 border-panel2 bg-emerald-400" />
+          <span className={`absolute -bottom-0.5 -right-0.5 z-10 h-3.5 w-3.5 rounded-full border-2 border-panel2 ${isInvisible ? "bg-white/20" : "bg-emerald-400"}`} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-bold text-white">

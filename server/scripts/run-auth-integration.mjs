@@ -121,6 +121,7 @@ async function main() {
       "username",
       "tag",
       "profile_pic",
+      "invisible_mode",
       "notification_preferences",
     ];
     const jwtAllowedExtra = new Set(["iat", "exp"]);
@@ -223,6 +224,17 @@ async function main() {
     const p3 = decodeJwtPayload(r.json.token);
     assert(p3.username === "renamed_user", "profile JWT should carry new username");
     assert(r.json.user?.username === "renamed_user", "profile user payload");
+
+    // --- 3.5) Profile PATCH invisible_mode + JWT verification ---
+    r = await request(baseUrl, "/profile", {
+      method: "PATCH",
+      headers: { "x-auth-token": r.json.token },
+      body: { invisible_mode: true },
+    });
+    assert(r.res.status === 200, `profile patch invisible_mode expected 200, got ${r.res.status}`);
+    const p3_5 = decodeJwtPayload(r.json.token);
+    assert(p3_5.invisible_mode === true, "profile JWT should carry new invisible_mode");
+    assert(r.json.user?.invisible_mode === true, "profile user payload invisible_mode");
 
     // --- 4) Unverified cannot sign in ---
     const emailUnver = `auth-itest-unver-${Date.now()}@example.com`;

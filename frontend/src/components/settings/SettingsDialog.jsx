@@ -6,12 +6,13 @@ import { Save, Lock, Bell, User, Image, CheckCircle2, AlertCircle, Loader2, Penc
 
 import { API_BASE_URL } from "../../config";
 import { resolveProfilePic, handleImageError } from "../../shared/imageFallbacks";
-import { change_tag, change_username, option_profile_pic, set_notification_preferences } from "../../store/userCredsSlice";
+import { change_tag, change_username, option_profile_pic, set_notification_preferences, set_invisible_mode } from "../../store/userCredsSlice";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
 import { getSupabaseBucket, supabase } from "../../lib/supabaseClient";
+import socket from "../socket/Socket";
 
 async function uploadProfilePic(file) {
   if (!supabase || !file) return "";
@@ -88,6 +89,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [invisibleMode, setInvisibleMode] = useState(user.invisible_mode || false);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -122,8 +124,9 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
       setPasswordError("");
       setPasswordSuccess("");
       setError("");
+      setInvisibleMode(user.invisible_mode || false);
     }
-  }, [open, user.username]);
+  }, [open, user.username, user.invisible_mode]);
 
   const reset = () => {
     setDisplayName(user.username || "");
@@ -139,6 +142,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
     setPasswordSuccess("");
     setNotifSavingKey(null);
     setActiveTab("user");
+    setInvisibleMode(user.invisible_mode || false);
   };
 
   const updateNotificationPref = useCallback(
@@ -212,6 +216,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
         body: JSON.stringify({
           username: nextName,
           profile_pic: finalProfilePic || "",
+          invisible_mode: invisibleMode,
         }),
       });
 
@@ -243,9 +248,12 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
       dispatch(change_username(decoded.username));
       dispatch(change_tag(decoded.tag));
       dispatch(option_profile_pic(updatedProfilePic));
+      dispatch(set_invisible_mode(Boolean(decoded.invisible_mode)));
       if (decoded.notification_preferences) {
         dispatch(set_notification_preferences(decoded.notification_preferences));
       }
+
+      socket.emit("presence_status_change", { invisible: Boolean(decoded.invisible_mode) });
 
       setSuccess("Profile updated successfully!");
       setSaving(false);
@@ -420,6 +428,20 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
                         onChange={(e) => setDisplayName(e.target.value)}
                         placeholder="Your display name"
                         className="h-9 border-white/5 bg-white/[0.03] text-sm text-white placeholder:text-white/10 focus:border-violet-500/40 focus:bg-white/[0.05]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/5 pt-6 space-y-4">
+                    <div className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-4 py-3 transition-all duration-200 hover:bg-white/[0.06]">
+                      <div>
+                        <div className="text-sm font-medium text-white/90">Invisible Mode</div>
+                        <div className="text-xs text-white/40">Hide your online activity status from other users</div>
+                      </div>
+                      <Switch
+                        checked={invisibleMode}
+                        onCheckedChange={(checked) => setInvisibleMode(checked)}
+                        disabled={saving}
                       />
                     </div>
                   </div>

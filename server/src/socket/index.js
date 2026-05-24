@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import { buildServerTypingEvent } from "../lib/typingEvents.js";
 
 const onlineUsers = new Map();
+const invisibleUsers = new Set();
 
 async function shouldSendNotification(userId, preferenceKey) {
   try {
@@ -15,12 +16,15 @@ async function shouldSendNotification(userId, preferenceKey) {
 }
 
 function emitPresenceSnapshot(socket) {
+  const visibleOnlineUsers = Array.from(onlineUsers.keys()).filter(
+    (userId) => !invisibleUsers.has(String(userId))
+  );
   socket.emit("presence_snapshot", {
-    online_user_ids: Array.from(onlineUsers.keys()),
+    online_user_ids: visibleOnlineUsers,
   });
 }
 
-function setUserOnline(io, userId, socketId) {
+function setUserOnline(io, userId, socketId, invisible = false) {
   const normalizedUserId = String(userId);
   const activeSockets = onlineUsers.get(normalizedUserId) || new Set();
   const wasOnline = activeSockets.size > 0;
@@ -28,7 +32,13 @@ function setUserOnline(io, userId, socketId) {
   activeSockets.add(socketId);
   onlineUsers.set(normalizedUserId, activeSockets);
 
-  if (!wasOnline) {
+  if (invisible) {
+    invisibleUsers.add(normalizedUserId);
+  } else {
+    invisibleUsers.delete(normalizedUserId);
+  }
+
+  if (!wasOnline && !invisible) {
     io.emit("presence_updated", {
       user_id: normalizedUserId,
       online: true,
@@ -52,10 +62,15 @@ function setUserOffline(io, userId, socketId) {
 
   if (activeSockets.size === 0) {
     onlineUsers.delete(normalizedUserId);
-    io.emit("presence_updated", {
-      user_id: normalizedUserId,
-      online: false,
-    });
+    const wasInvisible = invisibleUsers.has(normalizedUserId);
+    invisibleUsers.delete(normalizedUserId);
+
+    if (!wasInvisible) {
+      io.emit("presence_updated", {
+        user_id: normalizedUserId,
+        online: false,
+      });
+    }
     return;
   }
 
@@ -70,8 +85,18 @@ function attachSocketHandlers(io) {
   });
 
   io.on("connection", (socket) => {
-    socket.on("get_userid", (user_id) => {
+    socket.on("get_userid", async (user_id) => {
       const normalizedUserId = String(user_id);
+
+      let isInvisible = false;
+      try {
+        const user = await User.findById(normalizedUserId).select("invisible_mode").lean();
+        if (user && user.invisible_mode) {
+          isInvisible = true;
+        }
+      } catch (err) {
+        console.error("Error fetching user invisible status on connect:", err);
+      }
 
       if (socket.data.user_id === normalizedUserId) {
         socket.join(normalizedUserId);
@@ -85,8 +110,30 @@ function attachSocketHandlers(io) {
 
       socket.data.user_id = normalizedUserId;
       socket.join(normalizedUserId);
-      setUserOnline(io, normalizedUserId, socket.id);
+      setUserOnline(io, normalizedUserId, socket.id, isInvisible);
       emitPresenceSnapshot(socket);
+    });
+
+    socket.on("presence_status_change", ({ invisible }) => {
+      const userId = socket.data.user_id;
+      if (!userId) return;
+
+      const normalizedUserId = String(userId);
+      if (invisible) {
+        invisibleUsers.add(normalizedUserId);
+        io.emit("presence_updated", {
+          user_id: normalizedUserId,
+          online: false,
+        });
+      } else {
+        invisibleUsers.delete(normalizedUserId);
+        if (onlineUsers.has(normalizedUserId)) {
+          io.emit("presence_updated", {
+            user_id: normalizedUserId,
+            online: true,
+          });
+        }
+      }
     });
 
     socket.on(
