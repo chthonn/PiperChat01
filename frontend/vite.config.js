@@ -1,14 +1,10 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  server: {
-    port: 5173,
-    strictPort: true,
-  },
-  build: {
-    sourcemap: false,
+  test: {
+    globals: true,
+    environment: "node",
+    setupFiles: "./src/tests/setup.js",
+    testTimeout: 15000,
   },
 });
