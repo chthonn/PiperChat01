@@ -183,6 +183,41 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
     [dispatch, notificationPrefs],
   );
 
+  const updateInvisibleMode = useCallback(
+    async (checked) => {
+      const prev = invisibleMode;
+      setInvisibleMode(checked);
+      setError("");
+      setSuccess("");
+      try {
+        const res = await fetch(`${API_BASE_URL}/profile`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-auth-token": localStorage.getItem("token") || "",
+          },
+          body: JSON.stringify({
+            invisible_mode: checked,
+          }),
+        });
+        const data = await res.json();
+        if (data.status !== 200 || !data.token) {
+          setInvisibleMode(prev);
+          setError(data.message || "Failed to update invisible mode.");
+          return;
+        }
+        localStorage.setItem("token", data.token);
+        const decoded = jwt(data.token);
+        dispatch(set_invisible_mode(Boolean(decoded.invisible_mode)));
+        socket.emit("presence_status_change", { invisible: Boolean(decoded.invisible_mode) });
+      } catch (err) {
+        setInvisibleMode(prev);
+        setError("Failed to update invisible mode.");
+      }
+    },
+    [dispatch, invisibleMode],
+  );
+
   const saveProfile = async () => {
     const nextName = String(displayName || "").trim().replace(/\s+/g, " ");
 
@@ -216,7 +251,6 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
         body: JSON.stringify({
           username: nextName,
           profile_pic: finalProfilePic || "",
-          invisible_mode: invisibleMode,
         }),
       });
 
@@ -248,12 +282,9 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
       dispatch(change_username(decoded.username));
       dispatch(change_tag(decoded.tag));
       dispatch(option_profile_pic(updatedProfilePic));
-      dispatch(set_invisible_mode(Boolean(decoded.invisible_mode)));
       if (decoded.notification_preferences) {
         dispatch(set_notification_preferences(decoded.notification_preferences));
       }
-
-      socket.emit("presence_status_change", { invisible: Boolean(decoded.invisible_mode) });
 
       setSuccess("Profile updated successfully!");
       setSaving(false);
@@ -440,7 +471,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
                       </div>
                       <Switch
                         checked={invisibleMode}
-                        onCheckedChange={(checked) => setInvisibleMode(checked)}
+                        onCheckedChange={updateInvisibleMode}
                         disabled={saving}
                       />
                     </div>
