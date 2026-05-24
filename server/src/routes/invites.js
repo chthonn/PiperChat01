@@ -1,4 +1,7 @@
+import config from "../config/index.js";
+
 import express from "express";
+import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import shortid from "shortid";
 
@@ -15,8 +18,19 @@ import { getIO } from "../socket/runtime.js";
 const router = express.Router();
 
 router.post("/create_invite_link", async (req, res) => {
+  let user_id;
+  try {
+    user_id = jwt.verify(req.headers["x-auth-token"], config.ACCESS_TOKEN);
+  } catch (e) {
+    return res.status(401).json({ message: "Unauthorized", status: 401 });
+  }
+
   const { inviter_name, inviter_id, server_name, server_id, server_pic } =
     req.body;
+
+  if (String(user_id.id) !== String(inviter_id)) {
+    return res.status(403).json({ message: "Forbidden", status: 403 });
+  }
 
   const response = await checkInviteLink(inviter_id, server_id);
 
@@ -90,15 +104,26 @@ router.post("/invite_link_info", async (req, res) => {
 });
 
 router.post("/accept_invite", async (req, res) => {
+  let user_id;
+  try {
+    user_id = jwt.verify(req.headers["x-auth-token"], config.ACCESS_TOKEN);
+  } catch (e) {
+    return res.status(401).json({ message: "Unauthorized", status: 401 });
+  }
+
   const { user_details, server_details } = req.body;
   const { id } = user_details;
   const server_id = server_details.invite_details.server_id;
+
+  if (String(user_id.id) !== String(id)) {
+    return res.status(403).json({ message: "Forbidden", status: 403 });
+  }
 
   const checkUser = await checkServerInUser(id, server_id);
   if (
     !checkUser[0] ||
     !checkUser[0].servers ||
-    checkUser[0].servers.length > 0
+    checkUser[0].servers.length === 0
   ) {
     return res.json({ status: 403 });
   }

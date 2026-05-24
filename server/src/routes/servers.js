@@ -87,6 +87,13 @@ router.post("/server_info", async (req, res) => {
 });
 
 router.post("/add_new_channel", async (req, res) => {
+  let user_id;
+  try {
+    user_id = jwt.verify(req.headers["x-auth-token"], config.ACCESS_TOKEN);
+  } catch (e) {
+    return res.status(401).json({ message: "Unauthorized", status: 401 });
+  }
+
   const { category_id, channel_name, channel_type, server_id } = req.body;
   const newChannel = {
     $push: {
@@ -121,6 +128,13 @@ router.post("/add_new_channel", async (req, res) => {
 });
 
 router.post("/add_new_category", async (req, res) => {
+  let user_id;
+  try {
+    user_id = jwt.verify(req.headers["x-auth-token"], config.ACCESS_TOKEN);
+  } catch (e) {
+    return res.status(401).json({ message: "Unauthorized", status: 401 });
+  }
+
   const { category_name, server_id } = req.body;
   const newCategory = {
     $push: { categories: { category_name, channels: [] } },
@@ -147,8 +161,25 @@ router.post("/add_new_category", async (req, res) => {
 });
 
 router.post("/delete_server", async (req, res) => {
-  const { server_id } = req.body;
   let user_id;
+  try {
+    user_id = jwt.verify(req.headers["x-auth-token"], config.ACCESS_TOKEN);
+  } catch (e) {
+    return res.status(401).json({ message: "Unauthorized", status: 401 });
+  }
+
+  const { server_id } = req.body;
+  const server = await Server.findById(server_id).lean();
+  if (!server) {
+    return res.status(404).json({ status: 404, message: "Server not found" });
+  }
+
+  const isCreator =
+    server.created_by && String(server.created_by) === String(user_id.id);
+  if (!isCreator) {
+    return res.status(403).json({ status: 403, message: "Forbidden" });
+  }
+
   try {
     user_id = jwt.verify(
       req.headers["x-auth-token"],

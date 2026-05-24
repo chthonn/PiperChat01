@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import config from "../config/index.js";
 
 import nodemailer from "nodemailer";
@@ -178,12 +179,8 @@ async function sendMail(otp, mailValue, nameValue) {
 }
 
 function generateOTP() {
-  const digits = "0123456789";
-  let otp = "";
-  for (let i = 0; i < 4; i++) {
-    otp += digits[Math.floor(Math.random() * 10)];
-  }
-  return otp;
+  const otpNumber = crypto.randomInt(0, 10000);
+  return String(otpNumber).padStart(4, "0");
 }
 
 export { sendMail, generateOTP, MAIL_MODES };
