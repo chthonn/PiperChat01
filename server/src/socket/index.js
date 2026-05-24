@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import { buildServerTypingEvent } from "../lib/typingEvents.js";
 
 const onlineUsers = new Map();
 
@@ -183,6 +184,51 @@ function attachSocketHandlers(io) {
 
     socket.on("dm_stop_typing", ({ to }) => {
       socket.to(String(to)).emit("dm_stop_typing", { from: socket.data.user_id });
+    });
+
+    socket.on("server_typing", ({ channel_id, server_id, username } = {}) => {
+      if (
+        String(socket.data.active_channel_id || "") !== String(channel_id || "") ||
+        String(socket.data.server_id || "") !== String(server_id || "")
+      ) {
+        return;
+      }
+
+      const typingEvent = buildServerTypingEvent({
+        channel_id,
+        server_id,
+        from: socket.data.user_id,
+        username,
+      });
+
+      if (!typingEvent) {
+        return;
+      }
+
+      socket.to(`channel:${typingEvent.channel_id}`).emit("server_typing", typingEvent);
+    });
+
+    socket.on("server_stop_typing", ({ channel_id, server_id } = {}) => {
+      if (
+        String(socket.data.active_channel_id || "") !== String(channel_id || "") ||
+        String(socket.data.server_id || "") !== String(server_id || "")
+      ) {
+        return;
+      }
+
+      const typingEvent = buildServerTypingEvent({
+        channel_id,
+        server_id,
+        from: socket.data.user_id,
+      });
+
+      if (!typingEvent) {
+        return;
+      }
+
+      socket
+        .to(`channel:${typingEvent.channel_id}`)
+        .emit("server_stop_typing", typingEvent);
     });
 
     socket.on("disconnect", () => {

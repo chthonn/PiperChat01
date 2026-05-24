@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import logo from "../../images/discord_logo_3.png";
+import logo from "../../images/logo.png";
 import { useParams } from "react-router-dom";
 import invalid_link_image from "../../images/invalid_invite.svg";
 import jwt from "jwt-decode";
@@ -18,13 +18,9 @@ function Invite() {
   const [invite_details, setinvite_details] = useState(null);
   const [invalid_invite_link, setinvalid_invite_link] = useState(null);
 
-const [already_member, setAlreadyMember] = useState(false);   // 403 from backend
-  const [accept_failed, setAcceptFailed] = useState(false);     // 500 or network error
-  const [accepting, setAccepting] = useState(false);            // loading state on button
-
-
-
-
+  const [already_member, setAlreadyMember] = useState(false); // 403 from backend
+  const [accept_failed, setAcceptFailed] = useState(false);
+  const [accepting, setAccepting] = useState(false);
 
   const accept_invite = async () => {
     setAccepting(true);
@@ -189,6 +185,7 @@ const [already_member, setAlreadyMember] = useState(false);   // 403 from backen
                 <Button
                   className="w-full"
                   size="lg"
+                  disabled={accepting}
                   onClick={() => {
                     if (!token1) {
                       navigate("/", { replace: true });
@@ -201,8 +198,13 @@ const [already_member, setAlreadyMember] = useState(false);   // 403 from backen
                     }
                   }}
                 >
-                  Accept invite
+                  {accepting ? "Accepting..." : "Accept invite"}
                 </Button>
+                {accept_failed ? (
+                  <div className="text-center text-sm font-semibold text-red-300">
+                    Could not accept this invite. Try again.
+                  </div>
+                ) : null}
               </div>
             )
           ) : (

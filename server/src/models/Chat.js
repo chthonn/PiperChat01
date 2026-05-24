@@ -19,6 +19,7 @@ const chatSchema = new mongoose.Schema({
           sender_name: String,
           content: String,
           timestamp: String,
+          is_pinned: { type: Boolean, default: false },
         },
 
         isPinned: {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Hash, Pencil, Trash2, Save, SendHorizontal, Loader2, AlertCircle,Reply, Pin, X } from "lucide-react";
 import socket from "../../socket/Socket";
@@ -23,6 +23,8 @@ function ValidChat() {
   const tag = useSelector((state) => state.user_info.tag);
   const profile_pic = useSelector((state) => state.user_info.profile_pic);
   const id = useSelector((state) => state.user_info.id);
+  const serverRole = useSelector((state) => state.currentPage.role);
+  const isServerOwner = serverRole === "author";
 
   const [chat_message, setchat_message] = useState("");
   const [all_messages, setall_messages] = useState([]);
@@ -50,6 +52,7 @@ function ValidChat() {
     const message_to_send = chat_message;
     const timestamp = Date.now();
     setchat_message("");
+    stopTyping();
     await store_message(message_to_send, timestamp);
   };
 
@@ -85,6 +88,7 @@ function ValidChat() {
   useEffect(() => {
     if (channel_id !== "") {
       setall_messages([]);
+      setTypingUsers({});
       setIsLoading(true);
       setError(null);
 
@@ -99,6 +103,12 @@ function ValidChat() {
       });
       get_messages();
     }
+    return () => {
+      stopTyping();
+      Object.values(typingUserTimeoutsRef.current).forEach(clearTimeout);
+      typingUserTimeoutsRef.current = {};
+      setTypingUsers({});
+    };
     // eslint-disable-next-line
   }, [channel_id]);
 
@@ -213,6 +223,14 @@ function ValidChat() {
 
   useEffect(() => {
     const handleReceiveMessage = (messageData) => {
+      setTypingUsers((currentUsers) => {
+        const nextUsers = { ...currentUsers };
+        delete nextUsers[String(messageData.sender_id)];
+        return nextUsers;
+      });
+      clearTimeout(typingUserTimeoutsRef.current[String(messageData.sender_id)]);
+      delete typingUserTimeoutsRef.current[String(messageData.sender_id)];
+
       setall_messages((currentMessages) => {
         const existingMessages = currentMessages || [];
         const alreadyExists = existingMessages.some(
@@ -272,7 +290,15 @@ function ValidChat() {
       socket.off("server_message_deleted", handleDeletedMessage);
       socket.off("server_message_pin_updated", handlePinUpdated);
     };
-  }, []);
+  }, [channel_id, id, server_id]);
+
+  const typingNames = Object.values(typingUsers);
+  const typingText =
+    typingNames.length === 1
+      ? `${typingNames[0]} is typing...`
+      : typingNames.length > 1
+        ? `${typingNames.slice(0, 2).join(", ")}${typingNames.length > 2 ? " and others" : ""} are typing...`
+        : "";
 
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -437,7 +463,7 @@ function ValidChat() {
               <div
                id={`message-${elem.timestamp}`}
                 key={`${elem.timestamp}-${elem.sender_id}`}
-                className="group flex gap-2 rounded-2xl px-1 py-1.5 transition hover:bg-white/5 sm:gap-3 sm:px-2 sm:py-2"
+                className={`group flex gap-2 rounded-2xl px-1 py-1.5 transition hover:bg-white/5 sm:gap-3 sm:px-2 sm:py-2 ${elem.is_pinned ? "border border-brand-300/20 bg-brand-300/5" : ""}`}
               >
                 <div className="relative mt-4 h-9 w-9 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/40 sm:mt-3 sm:h-10 sm:w-10">
                   <img
@@ -565,6 +591,12 @@ function ValidChat() {
         )}
       </div>
 
+      {typingText ? (
+        <div className="px-4 pb-1 text-xs italic text-white/40">
+          {typingText}
+        </div>
+      ) : null}
+
       <div className="border-t border-white/10 bg-black/25 p-3">
           {replyTo && (
             <div className="mb-2 flex items-center justify-between rounded-lg border border-blue-500/30 bg-blue-500/10 p-2">
@@ -595,7 +627,7 @@ function ValidChat() {
                 sendNow();
               }
             }}
-            onChange={(e) => setchat_message(e.target.value)}
+            onChange={handleMessageChange}
             placeholder={`Message #${channel_name}`}
             className="flex-1"
           />
