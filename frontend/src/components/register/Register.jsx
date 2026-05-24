@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import AuthShell from "../auth/AuthShell";
 import { motion, AnimatePresence } from "framer-motion";
+import { FiEye, FiEyeOff } from "react-icons/fi";
+import { API_BASE_URL } from "../../config";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +16,7 @@ import {
 function Label({ children }) {
   return (
     <label
-      className="block text-xs font-bold tracking-widest uppercase mb-2"
+      className="block text-[11px] font-bold tracking-widest uppercase mb-1.5"
       style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.12em" }}
     >
       {children}
@@ -26,7 +28,7 @@ function StyledInput({ ...props }) {
   return (
     <input
       {...props}
-      className="w-full h-11 rounded-xl px-4 text-sm font-medium outline-none transition-all duration-200"
+      className="w-full h-10 rounded-xl px-4 text-sm font-medium outline-none transition-all duration-200"
       style={{
         background: "rgba(255,255,255,0.05)",
         border: "1px solid rgba(255,255,255,0.1)",
@@ -54,7 +56,7 @@ function StyledSelect({ children, ...props }) {
   return (
     <select
       {...props}
-      className="h-11 w-full rounded-xl px-3 text-sm font-medium outline-none transition-all duration-200 cursor-pointer"
+      className="h-10 w-full rounded-xl px-3 text-sm font-medium outline-none transition-all duration-200 cursor-pointer"
       style={{
         background: "rgba(255,255,255,0.05)",
         border: "1px solid rgba(255,255,255,0.1)",
@@ -89,7 +91,7 @@ function PrimaryButton({ children, disabled, ...props }) {
       whileTap={!disabled ? { scale: 0.985 } : {}}
       transition={{ duration: 0.15 }}
       disabled={disabled}
-      className="w-full h-12 rounded-xl text-sm font-bold tracking-wide transition-all duration-200"
+      className="w-full h-11 rounded-xl text-sm font-bold tracking-wide transition-all duration-200"
       style={{
         background: disabled
           ? "rgba(255,255,255,0.06)"
@@ -113,7 +115,7 @@ function GhostButton({ children, disabled, ...props }) {
   return (
     <button
       disabled={disabled}
-      className="h-10 px-4 rounded-xl text-sm font-semibold transition-all duration-200"
+      className="h-9 px-4 rounded-xl text-sm font-semibold transition-all duration-200"
       style={{
         background: "transparent",
         border: "1px solid rgba(255,255,255,0.1)",
@@ -180,28 +182,32 @@ function Register() {
   const [otp_alert_box, setotp_alert_box] = useState(false);
   const [otp_alert_message, setotp_alert_message] = useState("");
   const [date_validation, setdate_validation] = useState(false);
+  const [password_validation, setpassword_validation] = useState(false);
   const [user_values, setuser_values] = useState({
     date_value: "",
     year_value: "",
     month_value: "",
     username: "",
     password: "",
+    confirm_password: "",
     email: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const months = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
   ];
-  const url = import.meta.env.VITE_URL;
+  const url = API_BASE_URL;
 
   const canSubmit = useMemo(
     () =>
       user_values.email.trim().length > 0 &&
       user_values.username.trim().length > 0 &&
       user_values.password.length > 0 &&
+      user_values.confirm_password.length > 0 &&
       user_values.date_value !== "" &&
       user_values.month_value !== "" &&
       user_values.year_value !== "",
@@ -209,6 +215,10 @@ function Register() {
   );
 
   const handle_user_values = (e) => {
+    const { name } = e.target;
+    if ((name === "password" || name === "confirm_password") && password_validation) {
+      setpassword_validation(false);
+    }
     setuser_values((v) => ({ ...v, [e.target.name]: e.target.value }));
   };
 
@@ -223,6 +233,8 @@ function Register() {
     for (let i = 1; i < 32; i++) daysList.push(i);
     setdays(daysList);
   }, []);
+
+
 
   const register_req = async (e) => {
     e.preventDefault();
@@ -252,13 +264,16 @@ function Register() {
       monthIndex !== d.getMonth() + 1
     ) {
       setdate_validation(true);
+    } else if (user_values.password !== user_values.confirm_password) {
+      setpassword_validation(true);
     } else {
       setdate_validation(false);
+      setpassword_validation(false);
       const { email, password, username } = user_values;
       try {
         setSubmitting(true);
         setalert_box(false);
-        const res = await fetch(`${url}/signup`, {
+        const res = await fetch(`${url}/auth/signup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password, username, dob }),
@@ -301,7 +316,7 @@ function Register() {
     try {
       setVerifying(true);
       setotp_alert_box(false);
-      const res = await fetch(`${url}/verify`, {
+      const res = await fetch(`${url}/auth/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ otp_value: otp_value.trim(), email: user_values.email }),
@@ -337,7 +352,7 @@ function Register() {
     if (!url) return;
     try {
       setVerifying(true);
-      const res = await fetch(`${url}/resend_otp`, {
+      const res = await fetch(`${url}/auth/resend_otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user_values.email }),
@@ -369,18 +384,18 @@ function Register() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 8 }}
           transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="space-y-5"
+          className="space-y-3.5"
         >
           {/* Header */}
-          <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex flex-col items-center gap-2 text-center">
             <div>
               <h1
-                className="text-2xl font-black tracking-tight"
+                className="text-[1.7rem] font-black tracking-tight leading-none"
                 style={{ color: "#f0f0f5" }}
               >
                 Create your account
               </h1>
-              <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+              <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
                 Join PiperChat in under a minute
               </p>
             </div>
@@ -392,7 +407,7 @@ function Register() {
           )}
 
           {/* Form */}
-          <form onSubmit={register_req} className="space-y-4" noValidate>
+          <form onSubmit={register_req} className="space-y-3" noValidate>
             <div>
               <Label>Email</Label>
               <StyledInput
@@ -421,31 +436,79 @@ function Register() {
 
             <div>
               <Label>Password</Label>
-              <StyledInput
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                value={user_values.password}
-                onChange={handle_user_values}
-                required
-                disabled={submitting || verifying}
-                placeholder="At least 7 characters"
-              />
-              <p className="mt-1.5 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+              <div className="relative">
+                <StyledInput
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={user_values.password}
+                  onChange={handle_user_values}
+                  required
+                  disabled={submitting || verifying}
+                  placeholder="At least 7 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                  style={{ cursor: "pointer" }}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <FiEyeOff size={14} style={{ color: "var(--text-secondary)" }} />
+                  ) : (
+                    <FiEye size={14} style={{ color: "var(--text-secondary)" }} />
+                  )}
+                </button>
+              </div>
+              <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
                 Minimum 7 characters.
               </p>
             </div>
 
+            <div>
+              <Label>Confirm Password</Label>
+              <div className="space-y-1.5">
+                <StyledInput
+                  name="confirm_password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={user_values.confirm_password}
+                  onChange={handle_user_values}
+                  required
+                  disabled={submitting || verifying}
+                  placeholder="Confirm your password"
+                />
+                <AnimatePresence>
+                  {password_validation && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      className="rounded-xl px-3 py-1 text-[10px] leading-tight"
+                      style={{
+                        background: "rgba(239,68,68,0.15)",
+                        border: "1px solid rgba(239,68,68,0.4)",
+                        color: "#ff6b6b",
+                      }}
+                    >
+                      Confirm password entered is wrong
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+
             {/* Date of Birth */}
             <div
-              className="rounded-2xl p-4"
+              className="rounded-2xl p-3"
               style={{
                 background: "rgba(255,255,255,0.02)",
                 border: "1px solid rgba(255,255,255,0.07)",
               }}
             >
               <Label>Date of Birth</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 <StyledSelect
                   name="date_value"
                   value={user_values.date_value}
@@ -498,7 +561,7 @@ function Register() {
                 <motion.div
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-3 rounded-xl px-3 py-2 text-xs"
+                  className="mt-2 rounded-xl px-3 py-1.5 text-[11px]"
                   style={{
                     background: "rgba(234,179,8,0.08)",
                     border: "1px solid rgba(234,179,8,0.2)",

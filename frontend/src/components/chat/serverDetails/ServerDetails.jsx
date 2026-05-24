@@ -13,6 +13,7 @@ import {
 } from "../../ui/dialog";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
+import { API_BASE_URL } from "../../../config";
 
 function ServerDetails({ new_req_recieved, elem, onNavigate }) {
   const dispatch = useDispatch();
@@ -20,7 +21,7 @@ function ServerDetails({ new_req_recieved, elem, onNavigate }) {
   const [selectedValue, setSelectedValue] = useState("text");
   const [category_name, setcategory_name] = useState("");
   const [new_channel_name, setnew_channel_name] = useState("");
-  const url = import.meta.env.VITE_URL;
+  const url = API_BASE_URL;
   const [channel_creation_progess, setchannel_creation_progess] = useState({
     text: "Create Channel",
     disabled: false,
@@ -41,7 +42,7 @@ function ServerDetails({ new_req_recieved, elem, onNavigate }) {
   }
 
   const create_channel = async () => {
-    const res = await fetch(`${url}/add_new_channel`, {
+    const res = await fetch(`${url}/servers/add_new_channel`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -67,7 +68,7 @@ function ServerDetails({ new_req_recieved, elem, onNavigate }) {
       dispatch(change_page_id(channel_id));
       onNavigate?.();
       dispatch(clear_channel_unread({ server_id, channel_id }));
-      fetch(`${url}/mark_channel_read`, {
+      fetch(`${url}/notifications/mark_channel_read`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

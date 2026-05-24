@@ -13,6 +13,7 @@ import NotificationListener from "./components/notifications/NotificationListene
 import NotFound from "./components/notFound/NotFound";
 import { AnimatePresence } from "framer-motion";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
+import { Analytics } from "@vercel/analytics/react";
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -40,6 +41,7 @@ function App() {
           <NotificationListener />
           <AnimatedRoutes />
         </Router>
+        <Analytics />
       </div>
     </ErrorBoundary>
   );

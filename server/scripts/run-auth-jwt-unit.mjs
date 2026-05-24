@@ -2,9 +2,11 @@
  * Fast checks for JWT payload helper and bcrypt hash shape (no MongoDB).
  * Run: node server/scripts/run-auth-jwt-unit.mjs
  */
+import config from "../src/config/index.js";
+
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { buildAuthUserJwtPayload } from "../lib/authJwtPayload.js";
+import { buildAuthUserJwtPayload } from "../src/lib/authJwtPayload.js";
 
 const BCRYPT_RE = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
 
@@ -13,7 +15,7 @@ function assert(c, m) {
 }
 
 const secret =
-  process.env.ACCESS_TOKEN ||
+  config.ACCESS_TOKEN ||
   "unit-test-jwt-secret-minimum-length-32-characters";
 
 const mockUser = {

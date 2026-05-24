@@ -7,6 +7,7 @@ import {
   change_page_id,
   server_members,
   change_page_name,
+  server_role,
 } from "../../../store/currentPage";
 import {
   ChevronDown,
@@ -46,7 +47,7 @@ function Navbar2ChatValid({ onNavigate }) {
   const handle_inviteClose = () => setinviteshow(false);
   const [show_options, setshow_options] = useState("none");
   const [server_details, setserver_details] = useState([]);
-  const server_role = useSelector((state) => state.currentPage.role);
+  const serverRole = useSelector((state) => state.currentPage.role);
   const dispatch = useDispatch();
   const [new_category_name, setnew_category_name] = useState("");
   const [category_creation_progress, setcategory_creation_progress] = useState({
@@ -66,7 +67,7 @@ function Navbar2ChatValid({ onNavigate }) {
   };
 
   const create_invite_link = async () => {
-    const res = await fetch(`${url}/create_invite_link`, {
+    const res = await fetch(`${url}/invites/create_invite_link`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -87,7 +88,7 @@ function Navbar2ChatValid({ onNavigate }) {
   };
 
   const delete_server = async () => {
-    const res = await fetch(`${url}/delete_server`, {
+    const res = await fetch(`${url}/servers/delete_server`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -105,7 +106,7 @@ function Navbar2ChatValid({ onNavigate }) {
   };
 
   const leave_server = async () => {
-    const res = await fetch(`${url}/leave_server`, {
+    const res = await fetch(`${url}/servers/leave_server`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -131,7 +132,7 @@ function Navbar2ChatValid({ onNavigate }) {
   }
 
   const server_info = useCallback(async () => {
-    const res = await fetch(`${url}/server_info`, {
+    const res = await fetch(`${url}/servers/server_info`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -151,6 +152,10 @@ function Navbar2ChatValid({ onNavigate }) {
     const server = data[0];
     setserver_details(server);
     dispatch(server_members(server.users || []));
+    const currentMember = (server.users || []).find(
+      (member) => String(member.user_id) === String(id),
+    );
+    dispatch(server_role(currentMember?.user_role || ""));
 
     const channels = (server.categories || []).flatMap((category) =>
       (category.channels || []).map((channel) => ({
@@ -170,10 +175,10 @@ function Navbar2ChatValid({ onNavigate }) {
         dispatch(change_page_id(nextChannel.id));
       }
     }
-  }, [Navigate, activeChannelId, dispatch, server_id, url]);
+  }, [Navigate, activeChannelId, dispatch, id, server_id, url]);
 
   const create_category = async () => {
-    const res = await fetch(`${url}/add_new_category`, {
+    const res = await fetch(`${url}/servers/add_new_category`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -248,7 +253,7 @@ function Navbar2ChatValid({ onNavigate }) {
               <FolderPlus className="h-4 w-4 text-white/60" />
             </button>
 
-            {server_role == "author" ? (
+            {serverRole == "author" ? (
               <button
                 type="button"
                 className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/10"
@@ -295,7 +300,7 @@ function Navbar2ChatValid({ onNavigate }) {
               {server_details.server_name || "Server"}
             </div>
             <div className="mt-0.5 text-xs font-semibold text-white/45">
-              {server_role === "author" ? "Owner" : "Member"}
+              {serverRole === "author" ? "Owner" : "Member"}
             </div>
           </div>
           {show_options == "none" ? (

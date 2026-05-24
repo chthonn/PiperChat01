@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import logo from "../../images/discord_logo_3.png";
+import logo from "../../images/logo.png";
 import { useParams } from "react-router-dom";
 import invalid_link_image from "../../images/invalid_invite.svg";
 import jwt from "jwt-decode";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
+import { API_BASE_URL } from "../../config";
 
 function Invite() {
   const navigate = useNavigate();
@@ -13,30 +14,49 @@ function Invite() {
   const { username, tag, profile_pic, id } = user_creds || {};
 
   const { invite_link } = useParams();
-  const url = import.meta.env.VITE_URL;
+  const url = API_BASE_URL;
   const [invite_details, setinvite_details] = useState(null);
   const [invalid_invite_link, setinvalid_invite_link] = useState(null);
 
+  const [already_member, setAlreadyMember] = useState(false); // 403 from backend
+  const [accept_failed, setAcceptFailed] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+
   const accept_invite = async () => {
-    const res = await fetch(`${url}/accept_invite`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-auth-token": localStorage.getItem("token"),
-      },
-      body: JSON.stringify({
-        user_details: { username, tag, profile_pic, id },
-        server_details: { invite_details },
-      }),
-    });
-    const data = await res.json();
-    if (data.status == 200 || data.status == 403) {
-      navigate("/channels/@me", { replace: true });
+    setAccepting(true);
+    setAcceptFailed(false);
+    setAlreadyMember(false);
+
+    try {
+      const res = await fetch(`${url}/invites/accept_invite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": localStorage.getItem("token"),
+        },
+        body: JSON.stringify({
+          user_details: { username, tag, profile_pic, id },
+          server_details: { invite_details },
+        }),
+      });
+      const data = await res.json();
+
+      if (data.status == 200) {
+        navigate("/channels/@me", { replace: true });
+      } else if (data.status === 403) {
+        setAlreadyMember(true);
+      } else {
+        setAcceptFailed(true);
+      }
+    } catch {
+      setAcceptFailed(true);
+    } finally {
+      setAccepting(false);
     }
   };
 
   const invite_link_info = useCallback(async () => {
-    const res = await fetch(`${url}/invite_link_info`, {
+    const res = await fetch(`${url}/invites/invite_link_info`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -77,6 +97,45 @@ function Invite() {
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-brand-400" />
                 <div className="text-sm font-semibold">Loading details…</div>
               </div>
+              ) : already_member ? (
+              //dedicated "already a member" state
+              // shown when backend returns 403
+              <div className="space-y-5 text-center">
+                <div className="flex items-center justify-center">
+                  <img src={logo} alt="PiperChat" className="h-12 w-12" />
+                </div>
+                <div className="text-xl font-extrabold tracking-tight">
+                  You&aposre already a member
+                </div>
+                <div className="text-sm text-white/60">
+                  You already belong to{" "}
+                  <span className="font-bold text-white/85">
+                    {invite_details.server_name}
+                  </span>
+                  . Head back to continue the conversation.
+                </div>
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={() =>
+                    navigate(
+                      `/channels/${invite_details.server_id}`,
+                      { replace: true }
+                    )
+                  }
+                >
+                  Go to server
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  size="lg"
+                  onClick={() => navigate("/channels/@me", { replace: true })}
+                >
+                  Go to dashboard
+                </Button>
+              </div>
+
             ) : (
               <div className="space-y-6">
                 <div className="flex items-center justify-center">
@@ -126,6 +185,7 @@ function Invite() {
                 <Button
                   className="w-full"
                   size="lg"
+                  disabled={accepting}
                   onClick={() => {
                     if (!token1) {
                       navigate("/", { replace: true });
@@ -138,8 +198,13 @@ function Invite() {
                     }
                   }}
                 >
-                  Accept invite
+                  {accepting ? "Accepting..." : "Accept invite"}
                 </Button>
+                {accept_failed ? (
+                  <div className="text-center text-sm font-semibold text-red-300">
+                    Could not accept this invite. Try again.
+                  </div>
+                ) : null}
               </div>
             )
           ) : (

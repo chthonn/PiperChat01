@@ -1,11 +1,13 @@
 import socketIO from "socket.io-client";
+import { SOCKET_URL } from "../../config";
+
 // Vite shims process.env via vite.config.js → falls back to VITE_API_URL.
 // Use a safe fallback so the module never crashes on import even if the
 // env var is missing or the backend is temporarily down.
 const url =
+  SOCKET_URL ||
   import.meta.env.VITE_URL ||
   import.meta.env.VITE_API_URL ||
-  process.env.REACT_APP_URL ||
   "http://localhost:2000";
 
 const socket = socketIO(url, {
@@ -15,6 +17,7 @@ const socket = socketIO(url, {
   // the backend isn't running yet.
   autoConnect: false,
   transports: ["websocket", "polling"], // fallback to polling if WS fails
+  withCredentials: true,
   reconnection: true,
   reconnectionAttempts: Infinity,
   reconnectionDelay: 1000,
