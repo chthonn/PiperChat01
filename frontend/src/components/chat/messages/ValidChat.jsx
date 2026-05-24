@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Hash, Pencil, Trash2, Save, SendHorizontal, Loader2, AlertCircle } from "lucide-react";
+import { Hash, Pencil, Trash2, Save, SendHorizontal, Loader2, AlertCircle, Pin } from "lucide-react";
 import socket from "../../socket/Socket";
 import { useParams } from "react-router-dom";
 import { clear_channel_unread } from "../../../store/unreadSlice";
@@ -23,6 +23,8 @@ function ValidChat() {
   const tag = useSelector((state) => state.user_info.tag);
   const profile_pic = useSelector((state) => state.user_info.profile_pic);
   const id = useSelector((state) => state.user_info.id);
+  const serverRole = useSelector((state) => state.currentPage.role);
+  const isServerOwner = serverRole === "author";
 
   const [chat_message, setchat_message] = useState("");
   const [all_messages, setall_messages] = useState([]);
@@ -30,6 +32,46 @@ function ValidChat() {
   const [editingContent, setEditingContent] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [typingUsers, setTypingUsers] = useState({});
+  const typingTimeoutRef = useRef(null);
+  const typingUserTimeoutsRef = useRef({});
+  const isTypingRef = useRef(false);
+
+  const stopTyping = () => {
+    if (!isTypingRef.current) {
+      return;
+    }
+
+    clearTimeout(typingTimeoutRef.current);
+    isTypingRef.current = false;
+    socket.emit("server_stop_typing", { channel_id, server_id });
+  };
+
+  const handleMessageChange = (e) => {
+    const nextMessage = e.target.value;
+    setchat_message(nextMessage);
+
+    if (!channel_id || !server_id || !id) {
+      return;
+    }
+
+    if (!nextMessage.trim()) {
+      stopTyping();
+      return;
+    }
+
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      socket.emit("server_typing", {
+        channel_id,
+        server_id,
+        username,
+      });
+    }
+
+    clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(stopTyping, 2000);
+  };
 
   useEffect(() => {
     if(socket && channel_id){
@@ -53,6 +95,7 @@ function ValidChat() {
     const message_to_send = chat_message;
     const timestamp = Date.now();
     setchat_message("");
+    stopTyping();
     await store_message(message_to_send, timestamp);
   };
 
@@ -88,6 +131,7 @@ function ValidChat() {
   useEffect(() => {
     if (channel_id !== "") {
       setall_messages([]);
+      setTypingUsers({});
       setIsLoading(true);
       setError(null);
 
@@ -102,7 +146,14 @@ function ValidChat() {
       });
       get_messages();
     }
-  }, [channel_id, server_id]);
+    return () => {
+      stopTyping();
+      Object.values(typingUserTimeoutsRef.current).forEach(clearTimeout);
+      typingUserTimeoutsRef.current = {};
+      setTypingUsers({});
+    };
+    // eslint-disable-next-line
+  }, [channel_id]);
 
   const get_messages = async () => {
     try {
@@ -195,11 +246,44 @@ function ValidChat() {
     }
   };
 
+  const togglePinMessage = async (message) => {
+    const res = await fetch(`${url}/chat/toggle_server_message_pin`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-auth-token": localStorage.getItem("token"),
+      },
+      body: JSON.stringify({
+        server_id,
+        channel_id,
+        timestamp: message.timestamp,
+        sender_id: message.sender_id,
+      }),
+    });
+
+    const data = await res.json();
+    if (data.status === 200) {
+      setall_messages((currentMessages) =>
+        currentMessages.map((entry) =>
+          String(entry.timestamp) === String(message.timestamp) &&
+          String(entry.sender_id) === String(message.sender_id)
+            ? { ...entry, is_pinned: data.is_pinned }
+            : entry
+        )
+      );
+    }
+  };
+
   useEffect(() => {
     const handleReceiveMessage = (messageData) => {
-      if (String(messageData.channel_id) !== String(channel_id)) {
-        return;
-      }
+      setTypingUsers((currentUsers) => {
+        const nextUsers = { ...currentUsers };
+        delete nextUsers[String(messageData.sender_id)];
+        return nextUsers;
+      });
+      clearTimeout(typingUserTimeoutsRef.current[String(messageData.sender_id)]);
+      delete typingUserTimeoutsRef.current[String(messageData.sender_id)];
+
       setall_messages((currentMessages) => {
         const existingMessages = currentMessages || [];
         const alreadyExists = existingMessages.some(
@@ -244,17 +328,87 @@ function ValidChat() {
         )
       );
     };
+
+    const handlePinUpdatedMessage = (message_data) => {
+      setall_messages((currentMessages) =>
+        (currentMessages || []).map((entry) =>
+          String(entry.timestamp) === String(message_data.timestamp) &&
+          entry.sender_id === message_data.sender_id
+            ? { ...entry, is_pinned: message_data.is_pinned }
+            : entry
+        )
+      );
+    };
+
+    const handleTyping = (typingData) => {
+      if (
+        String(typingData?.server_id) !== String(server_id) ||
+        String(typingData?.channel_id) !== String(channel_id) ||
+        String(typingData?.from) === String(id)
+      ) {
+        return;
+      }
+
+      setTypingUsers((currentUsers) => ({
+        ...currentUsers,
+        [String(typingData.from)]: typingData.username || "Someone",
+      }));
+
+      clearTimeout(typingUserTimeoutsRef.current[String(typingData.from)]);
+      typingUserTimeoutsRef.current[String(typingData.from)] = setTimeout(() => {
+        setTypingUsers((currentUsers) => {
+          const nextUsers = { ...currentUsers };
+          delete nextUsers[String(typingData.from)];
+          return nextUsers;
+        });
+        delete typingUserTimeoutsRef.current[String(typingData.from)];
+      }, 3000);
+    };
+
+    const handleStopTyping = (typingData) => {
+      if (
+        String(typingData?.server_id) !== String(server_id) ||
+        String(typingData?.channel_id) !== String(channel_id)
+      ) {
+        return;
+      }
+
+      setTypingUsers((currentUsers) => {
+        const nextUsers = { ...currentUsers };
+        delete nextUsers[String(typingData.from)];
+        return nextUsers;
+      });
+      clearTimeout(typingUserTimeoutsRef.current[String(typingData.from)]);
+      delete typingUserTimeoutsRef.current[String(typingData.from)];
+    };
+
     //earlier it was server_message_receive which was wrong
     socket.on("server_message_received", handleReceiveMessage);
     socket.on("server_message_updated", handleUpdatedMessage);
     socket.on("server_message_deleted", handleDeletedMessage);
+    socket.on("server_message_pin_updated", handlePinUpdatedMessage);
+    socket.on("server_typing", handleTyping);
+    socket.on("server_stop_typing", handleStopTyping);
 
     return () => {
       socket.off("server_message_received", handleReceiveMessage);
       socket.off("server_message_updated", handleUpdatedMessage);
       socket.off("server_message_deleted", handleDeletedMessage);
+      socket.off("server_message_pin_updated", handlePinUpdatedMessage);
+      socket.off("server_typing", handleTyping);
+      socket.off("server_stop_typing", handleStopTyping);
+      Object.values(typingUserTimeoutsRef.current).forEach(clearTimeout);
+      typingUserTimeoutsRef.current = {};
     };
-  }, [channel_id]);
+  }, [channel_id, id, server_id]);
+
+  const typingNames = Object.values(typingUsers);
+  const typingText =
+    typingNames.length === 1
+      ? `${typingNames[0]} is typing...`
+      : typingNames.length > 1
+        ? `${typingNames.slice(0, 2).join(", ")}${typingNames.length > 2 ? " and others" : ""} are typing...`
+        : "";
 
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -314,7 +468,7 @@ function ValidChat() {
             return (
               <div
                 key={`${elem.timestamp}-${elem.sender_id}`}
-                className="group flex gap-2 rounded-2xl px-1 py-1.5 transition hover:bg-white/5 sm:gap-3 sm:px-2 sm:py-2"
+                className={`group flex gap-2 rounded-2xl px-1 py-1.5 transition hover:bg-white/5 sm:gap-3 sm:px-2 sm:py-2 ${elem.is_pinned ? "border border-brand-300/20 bg-brand-300/5" : ""}`}
               >
                 <div className="relative mt-4 h-9 w-9 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/40 sm:mt-3 sm:h-10 sm:w-10">
                   <img
@@ -333,31 +487,50 @@ function ValidChat() {
                     <div className="text-[10px] leading-none text-white/35">
                       {timestamp}
                     </div>
-                    {mine ? (
-                      <div className="ml-auto flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-                        <button
-                          type="button"
-                          className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
-                          onClick={() => {
-                            setEditingTimestamp(elem.timestamp);
-                            setEditingContent(elem.content);
-                          }}
-                          title="Edit"
-                          aria-label="Edit"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
-                          onClick={() => deleteMessage(elem)}
-                          title="Delete"
-                          aria-label="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                    {elem.is_pinned ? (
+                      <div className="inline-flex items-center gap-1 rounded-full border border-brand-300/25 bg-brand-300/10 px-2 py-0.5 text-[10px] font-semibold text-brand-200">
+                        <Pin className="h-3 w-3" />
+                        Pinned
                       </div>
                     ) : null}
+                    <div className="ml-auto flex items-center gap-1">
+                      {mine ? (
+                        <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                          <button
+                            type="button"
+                            className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
+                            onClick={() => {
+                              setEditingTimestamp(elem.timestamp);
+                              setEditingContent(elem.content);
+                            }}
+                            title="Edit"
+                            aria-label="Edit"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
+                            onClick={() => deleteMessage(elem)}
+                            title="Delete"
+                            aria-label="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : null}
+                      {isServerOwner ? (
+                        <button
+                          type="button"
+                          className={`rounded-lg border border-white/10 bg-white/5 p-1.5 transition hover:bg-white/10 hover:text-white ${elem.is_pinned ? "text-brand-200" : "text-white/60"}`}
+                          onClick={() => togglePinMessage(elem)}
+                          title={elem.is_pinned ? "Unpin" : "Pin"}
+                          aria-label={elem.is_pinned ? "Unpin message" : "Pin message"}
+                        >
+                          <Pin className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
 
                   {isEditing ? (
@@ -401,6 +574,12 @@ function ValidChat() {
         )}
       </div>
 
+      {typingText ? (
+        <div className="px-4 pb-1 text-xs italic text-white/40">
+          {typingText}
+        </div>
+      ) : null}
+
       <div className="border-t border-white/10 bg-black/25 p-3">
         <div className="flex items-center gap-2">
           <Input
@@ -411,7 +590,7 @@ function ValidChat() {
                 sendNow();
               }
             }}
-            onChange={(e) => setchat_message(e.target.value)}
+            onChange={handleMessageChange}
             placeholder={`Message #${channel_name}`}
             className="flex-1"
           />

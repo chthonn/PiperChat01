@@ -1,11 +1,10 @@
 import { motion } from "framer-motion";
 
-export default function AuthShell({ children, mode }) {
-  const isRegister = mode === "register";
+export default function AuthShell({ children }) {
 
   return (
     <div
-      className={`relative overflow-hidden ${isRegister ? "h-dvh" : "min-h-dvh"}`}
+      className="relative overflow-x-hidden min-h-dvh"
       style={{ background: "#0a0a0f" }}
     >
       <div
@@ -65,9 +64,7 @@ export default function AuthShell({ children, mode }) {
       />
 
       <div
-        className={`relative mx-auto flex w-full max-w-6xl items-center px-5 ${
-          isRegister ? "h-dvh py-8" : "min-h-dvh py-12"
-        }`}
+        className="relative mx-auto flex w-full max-w-6xl items-center px-5 min-h-dvh py-8"
       >
         <div className="grid w-full items-center gap-12 lg:grid-cols-2 lg:gap-16">
 
@@ -130,13 +127,13 @@ export default function AuthShell({ children, mode }) {
                 <motion.div
                   key={item.label}
                   whileHover={{
-                        y: -5,
-                        scale: 1.03,
-                        boxShadow: "0 12px 30px rgba(124,58,237,0.18)"
+                    y: -5,
+                    scale: 1.03,
+                    boxShadow: "0 12px 30px rgba(124,58,237,0.18)"
                   }}
                   transition={{ duration: 0.2 }}
                   className="rounded-2xl p-4 cursor-pointer hover:border-violet-400/30"
-                  style={{ 
+                  style={{
                     background: "rgba(255,255,255,0.06)",
                     border: "1px solid rgba(255,255,255,0.12)",
                     boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
@@ -184,6 +181,75 @@ export default function AuthShell({ children, mode }) {
             className="w-full"
           >
             <div className="mx-auto w-full max-w-md">
+
+              <div className="mb-12 lg:hidden flex flex-col items-center text-center space-y-4">
+                <div className="inline-flex items-center gap-2.5 rounded-full px-4 py-1.5 text-xs font-semibold tracking-widest uppercase"
+                  style={{
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    color: "rgba(255,255,255,0.5)",
+                    letterSpacing: "0.15em",
+                  }}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full animate-pulse"
+                    style={{ background: "#10b981", boxShadow: "0 0 0 3px rgba(16,185,129,0.2)" }}
+                  />
+                  PiperChat · Live
+                </div>
+
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: "rgba(255,255,255,0.55)" }}
+                >
+                  Your people, all in one place ✦
+                </p>
+
+                <p
+                  className="text-xs leading-relaxed max-w-xs"
+                  style={{ color: "rgba(255,255,255,0.38)" }}
+                >
+                  Fast messaging, organized communities, and live presence —
+                  built for modern communication.
+                </p>
+
+                <div className="flex flex-wrap justify-center gap-2 pt-1">
+
+                  <div
+                    className="px-3 py-1.5 rounded-full text-[11px] font-medium"
+                    style={{
+                      background: "rgba(168,85,247,0.12)",
+                      border: "1px solid rgba(168,85,247,0.2)",
+                      color: "#d8b4fe",
+                    }}
+                  >
+                    ⚡ Instant DMs
+                  </div>
+
+                  <div
+                    className="px-3 py-1.5 rounded-full text-[11px] font-medium"
+                    style={{
+                      background: "rgba(245,158,11,0.12)",
+                      border: "1px solid rgba(245,158,11,0.2)",
+                      color: "#fcd34d",
+                    }}
+                  >
+                    🏠 Smart Servers
+                  </div>
+
+                  <div
+                    className="px-3 py-1.5 rounded-full text-[11px] font-medium"
+                    style={{
+                      background: "rgba(16,185,129,0.12)",
+                      border: "1px solid rgba(16,185,129,0.2)",
+                      color: "#86efac",
+                    }}
+                  >
+                    🟢 Live Presence
+                  </div>
+
+                </div>
+              </div>
               <div
                 className="rounded-3xl p-8"
                 style={{
@@ -198,15 +264,11 @@ export default function AuthShell({ children, mode }) {
                 {children}
               </div>
 
-              <div className="mt-6 lg:hidden text-center">
-                <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.5)" }}>
-                  Your people, all in one place. ✦
-                </p>
-              </div>
+
             </div>
           </motion.section>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
