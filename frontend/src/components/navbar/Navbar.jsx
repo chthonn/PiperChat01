@@ -19,6 +19,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { close_direct_message } from "../../store/directMessageSlice";
 import { API_BASE_URL } from "../../config";
+import { SERVER_NAME_MAX_LENGTH } from "../../lib/validationLimits";
 
 function Navbar({ new_req_recieved, user_cred, onNavigate }) {
   const dispatch = useDispatch();
@@ -35,6 +36,8 @@ function Navbar({ new_req_recieved, user_cred, onNavigate }) {
     setcurrent_modal(1);
     setsubmit_button({ create_button_state: false, back_button_state: false });
     setnew_server_image_preview(server_input);
+    setnew_server_image("");
+    setServerError("");
   };
   const handleShow = () => setShow(true);
   const template = [
@@ -60,6 +63,7 @@ function Navbar({ new_req_recieved, user_cred, onNavigate }) {
   const [new_server_image_preview, setnew_server_image_preview] =
     useState(server_input);
   const [new_server_image, setnew_server_image] = useState("");
+  const [serverError, setServerError] = useState("");
 
   function update_server_pic(e) {
     let file = e.target.files[0];
@@ -102,23 +106,41 @@ function Navbar({ new_req_recieved, user_cred, onNavigate }) {
   };
 
   const create_server = async () => {
-    const image_url = await upload_server_image();
+    const serverName = server_details.name.trim();
+    if (!serverName) {
+      setServerError("Server name cannot be empty.");
+      return false;
+    }
+    if (server_details.name.length > SERVER_NAME_MAX_LENGTH) {
+      setServerError(`Server name must be ${SERVER_NAME_MAX_LENGTH} characters or fewer.`);
+      return false;
+    }
 
-    const res = await fetch(`${API_BASE_URL}/servers/create_server`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-auth-token": localStorage.getItem("token"),
-      },
-      body: JSON.stringify({
-        server_details,
-        server_image: image_url,
-      }),
-    });
-    const data = await res.json();
-    if (data.status === 200) {
-      handleClose();
-      new_req_recieved(1);
+    try {
+      const image_url = await upload_server_image();
+
+      const res = await fetch(`${API_BASE_URL}/servers/create_server`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": localStorage.getItem("token"),
+        },
+        body: JSON.stringify({
+          server_details: { ...server_details, name: serverName },
+          server_image: image_url,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === 200) {
+        handleClose();
+        new_req_recieved(1);
+        return true;
+      }
+      setServerError(data.message || "Server could not be created.");
+      return false;
+    } catch {
+      setServerError("Server could not be created. Please try again.");
+      return false;
     }
   };
 
@@ -342,13 +364,21 @@ function Navbar({ new_req_recieved, user_cred, onNavigate }) {
                   </div>
                   <Input
                     value={server_details.name}
-                    onChange={(e) =>
+                    maxLength={SERVER_NAME_MAX_LENGTH}
+                    onChange={(e) => {
+                      setServerError("");
                       setserver_details({
                         ...server_details,
                         name: e.target.value,
-                      })
-                    }
+                      });
+                    }}
                   />
+                  <div className="flex items-center justify-between gap-3 text-xs font-semibold">
+                    <span className="text-red-300">{serverError}</span>
+                    <span className="ml-auto text-white/35">
+                      {server_details.name.length}/{SERVER_NAME_MAX_LENGTH}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -364,13 +394,23 @@ function Navbar({ new_req_recieved, user_cred, onNavigate }) {
                 </Button>
                 <Button
                   type="button"
-                  disabled={submit_button.create_button_state}
-                  onClick={() => {
-                    create_server();
+                  disabled={
+                    submit_button.create_button_state ||
+                    !server_details.name.trim() ||
+                    server_details.name.length > SERVER_NAME_MAX_LENGTH
+                  }
+                  onClick={async () => {
                     setsubmit_button({
                       create_button_state: true,
                       back_button_state: true,
                     });
+                    const created = await create_server();
+                    if (!created) {
+                      setsubmit_button({
+                        create_button_state: false,
+                        back_button_state: false,
+                      });
+                    }
                   }}
                 >
                   {submit_button.create_button_state ? (

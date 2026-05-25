@@ -8,6 +8,7 @@ import { Input } from "../../ui/input";
 import { Button } from "../../ui/button";
 import { resolveProfilePic, handleImageError } from "../../../shared/imageFallbacks";
 import { API_BASE_URL } from "../../../config";
+import { MESSAGE_MAX_LENGTH } from "../../../lib/validationLimits";
 
 function ValidChat() {
   const dispatch = useDispatch();
@@ -32,6 +33,8 @@ function ValidChat() {
   const [editingContent, setEditingContent] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [messageError, setMessageError] = useState("");
+  const [editingError, setEditingError] = useState("");
   const [typingUsers, setTypingUsers] = useState({});
   const typingTimeoutRef = useRef(null);
   const typingUserTimeoutsRef = useRef({});
@@ -50,6 +53,7 @@ function ValidChat() {
   const handleMessageChange = (e) => {
     const nextMessage = e.target.value;
     setchat_message(nextMessage);
+    setMessageError("");
 
     if (!channel_id || !server_id || !id) {
       return;
@@ -83,8 +87,12 @@ function ValidChat() {
   }, [channel_id,server_id]);
 
   const sendNow = async () => {
-    if (!chat_message.trim()) return;
-    const message_to_send = chat_message;
+    const message_to_send = chat_message.trim();
+    if (!message_to_send) return;
+    if (chat_message.length > MESSAGE_MAX_LENGTH) {
+      setMessageError(`Message must be ${MESSAGE_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
     const timestamp = Date.now();
     setchat_message("");
     stopTyping();
@@ -112,6 +120,7 @@ function ValidChat() {
     });
     const data = await res.json();
     if (data.status !== 200) {
+      setMessageError(data.message || "Message could not be sent.");
       setchat_message(chat_message);
     }
   };
@@ -173,6 +182,13 @@ function ValidChat() {
   };
 
   const editMessage = async (message) => {
+    const nextContent = editingContent.trim();
+    if (!nextContent) return;
+    if (editingContent.length > MESSAGE_MAX_LENGTH) {
+      setEditingError(`Message must be ${MESSAGE_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+
     const res = await fetch(`${url}/chat/edit_server_message`, {
       method: "POST",
       headers: {
@@ -192,12 +208,15 @@ function ValidChat() {
         currentMessages.map((entry) =>
           String(entry.timestamp) === String(message.timestamp) &&
           entry.sender_id === id
-            ? { ...entry, content: editingContent.trim() }
+            ? { ...entry, content: nextContent }
             : entry
         )
       );
       setEditingTimestamp(null);
       setEditingContent("");
+      setEditingError("");
+    } else {
+      setEditingError(data.message || "Message could not be updated.");
     }
   };
 
@@ -475,6 +494,7 @@ function ValidChat() {
                             onClick={() => {
                               setEditingTimestamp(elem.timestamp);
                               setEditingContent(elem.content);
+                              setEditingError("");
                             }}
                             title="Edit"
                             aria-label="Edit"
@@ -510,7 +530,11 @@ function ValidChat() {
                     <div className="mt-2 flex items-center gap-2">
                       <Input
                         value={editingContent}
-                        onChange={(e) => setEditingContent(e.target.value)}
+                        maxLength={MESSAGE_MAX_LENGTH}
+                        onChange={(e) => {
+                          setEditingContent(e.target.value);
+                          setEditingError("");
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && editingContent.trim()) {
                             editMessage(elem);
@@ -532,6 +556,14 @@ function ValidChat() {
                         <Save className="h-4 w-4" />
                         Save
                       </Button>
+                      <div className="shrink-0 text-xs font-semibold text-white/35">
+                        {editingContent.length}/{MESSAGE_MAX_LENGTH}
+                      </div>
+                      {editingError ? (
+                        <div className="text-xs font-semibold text-red-300">
+                          {editingError}
+                        </div>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-[1.45] text-white/85">
@@ -557,6 +589,7 @@ function ValidChat() {
         <div className="flex items-center gap-2">
           <Input
             value={chat_message}
+            maxLength={MESSAGE_MAX_LENGTH}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -567,6 +600,9 @@ function ValidChat() {
             placeholder={`Message #${channel_name}`}
             className="flex-1"
           />
+          <div className="hidden w-20 text-right text-xs font-semibold text-white/35 sm:block">
+            {chat_message.length}/{MESSAGE_MAX_LENGTH}
+          </div>
           <Button
             type="button"
             onClick={sendNow}
@@ -576,6 +612,11 @@ function ValidChat() {
             <SendHorizontal className="h-4 w-4" />
           </Button>
         </div>
+        {messageError ? (
+          <div className="mt-2 text-xs font-semibold text-red-300">
+            {messageError}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -1,0 +1,2 @@
+export const MESSAGE_MAX_LENGTH = 2000;
+export const SERVER_NAME_MAX_LENGTH = 100;

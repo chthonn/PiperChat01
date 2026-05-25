@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import { buildServerTypingEvent } from "../lib/typingEvents.js";
+import { validateMessageContent } from "../lib/validation.js";
 
 const onlineUsers = new Map();
 
@@ -166,9 +167,25 @@ function attachSocketHandlers(io) {
     socket.on(
       "send_message",
       (channel_id, message, timestamp, sender_name, sender_tag, sender_pic) => {
-        socket.to(`channel:${channel_id}`).emit("recieve_message", {
+        const normalizedChannelId = String(channel_id || "");
+        if (
+          !normalizedChannelId ||
+          String(socket.data.active_channel_id || "") !== normalizedChannelId
+        ) {
+          return;
+        }
+
+        const messageValidation = validateMessageContent(message);
+        if (!messageValidation.valid) {
+          socket.emit("message_validation_error", {
+            message: messageValidation.message,
+          });
+          return;
+        }
+
+        socket.to(`channel:${normalizedChannelId}`).emit("recieve_message", {
           message_data: {
-            message,
+            message: messageValidation.value,
             timestamp,
             sender_name,
             sender_tag,

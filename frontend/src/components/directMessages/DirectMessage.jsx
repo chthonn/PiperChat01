@@ -7,6 +7,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Pencil, Trash2, Save, Send } from "lucide-react";
 import { API_BASE_URL } from "../../config";
+import { MESSAGE_MAX_LENGTH } from "../../lib/validationLimits";
 
 function DirectMessage() {
   const dispatch = useDispatch();
@@ -16,6 +17,8 @@ function DirectMessage() {
   const [input, setInput] = useState("");
   const [editingTimestamp, setEditingTimestamp] = useState(null);
   const [editingContent, setEditingContent] = useState("");
+  const [messageError, setMessageError] = useState("");
+  const [editingError, setEditingError] = useState("");
   const [friendIsTyping, setFriendIsTyping] = useState(false);
   const typingTimeoutRef = useRef(null);
   const isTypingRef = useRef(false);
@@ -146,6 +149,7 @@ function DirectMessage() {
 
   const handleInputChange = (e) => {
     setInput(e.target.value);
+    setMessageError("");
     if (!activeFriend) return;
     if (!isTypingRef.current) {
       isTypingRef.current = true;
@@ -160,6 +164,11 @@ function DirectMessage() {
 
   const sendMessage = async () => {
     if (!input.trim() || !activeFriend) return;
+
+    if (input.length > MESSAGE_MAX_LENGTH) {
+      setMessageError(`Message must be ${MESSAGE_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
 
     const message = input.trim();
     setInput("");
@@ -180,6 +189,7 @@ function DirectMessage() {
     });
     const data = await res.json();
     if (data.status !== 200) {
+      setMessageError(data.message || "Message could not be sent.");
       setInput(message);
     }
   };
@@ -187,9 +197,17 @@ function DirectMessage() {
   const startEditing = (message) => {
     setEditingTimestamp(message.timestamp);
     setEditingContent(message.content);
+    setEditingError("");
   };
 
   const editMessage = async (message) => {
+    const nextContent = editingContent.trim();
+    if (!nextContent) return;
+    if (editingContent.length > MESSAGE_MAX_LENGTH) {
+      setEditingError(`Message must be ${MESSAGE_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+
     const res = await fetch(`${url}/direct-messages/edit_direct_message`, {
       method: "POST",
       headers: {
@@ -209,12 +227,15 @@ function DirectMessage() {
         currentMessages.map((entry) =>
           String(entry.timestamp) === String(message.timestamp) &&
           entry.sender_id === currentUser.id
-            ? { ...entry, content: editingContent.trim() }
+            ? { ...entry, content: nextContent }
             : entry
         )
       );
       setEditingTimestamp(null);
       setEditingContent("");
+      setEditingError("");
+    } else {
+      setEditingError(data.message || "Message could not be updated.");
     }
   };
 
@@ -302,7 +323,11 @@ function DirectMessage() {
                     <div className="mt-2 flex items-center gap-2">
                       <Input
                         value={editingContent}
-                        onChange={(e) => setEditingContent(e.target.value)}
+                        maxLength={MESSAGE_MAX_LENGTH}
+                        onChange={(e) => {
+                          setEditingContent(e.target.value);
+                          setEditingError("");
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && editingContent.trim()) {
                             editMessage(message);
@@ -318,12 +343,21 @@ function DirectMessage() {
                         <Save className="h-4 w-4" />
                         Save
                       </Button>
+                      <div className="shrink-0 text-xs font-semibold text-white/35">
+                        {editingContent.length}/{MESSAGE_MAX_LENGTH}
+                      </div>
+                      {editingError ? (
+                        <div className="text-xs font-semibold text-red-300">
+                          {editingError}
+                        </div>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="relative mt-2">
                       <div
                         className={[
                           "rounded-2xl border px-3 py-2 text-sm leading-relaxed",
+                          "break-words whitespace-pre-wrap",
                           mine
                             ? "border-brand-400/20 bg-brand-400/10 text-white"
                             : "border-white/10 bg-white/5 text-white/85",
@@ -395,14 +429,23 @@ function DirectMessage() {
         >
           <Input
             value={input}
+            maxLength={MESSAGE_MAX_LENGTH}
             onChange={handleInputChange}
             placeholder={`Message @${activeFriend.username}`}
             className="h-11"
           />
+          <div className="hidden w-20 text-right text-xs font-semibold text-white/35 sm:block">
+            {input.length}/{MESSAGE_MAX_LENGTH}
+          </div>
           <Button type="submit" disabled={!input.trim()} className="shrink-0">
             <Send className="h-4 w-4" />
           </Button>
         </form>
+        {messageError ? (
+          <div className="mt-2 text-xs font-semibold text-red-300">
+            {messageError}
+          </div>
+        ) : null}
       </div>
     </div>
   );

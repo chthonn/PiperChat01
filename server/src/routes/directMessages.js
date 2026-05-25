@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import DirectMessageThread from "../models/DirectMessageThread.js";
 import User from "../models/User.js";
 import * as cache from "../lib/cache.js";
+import { validateMessageContent } from "../lib/validation.js";
 import { incrementDmUnread } from "../services/unreadService.js";
 import { getIO } from "../socket/runtime.js";
 
@@ -75,8 +76,12 @@ router.post("/send_direct_message", async (req, res) => {
 
   const { friend_id, content } = req.body;
 
-  if (!friend_id || !content || !content.trim()) {
-    return res.status(400).json({ message: "Invalid input", status: 400 });
+  const contentValidation = validateMessageContent(content);
+  if (!friend_id || !contentValidation.valid) {
+    return res.status(400).json({
+      message: contentValidation.message || "Invalid input",
+      status: 400,
+    });
   }
 
   const currentUser = await User.findOne({ _id: user.id }).lean();
@@ -99,7 +104,7 @@ router.post("/send_direct_message", async (req, res) => {
     sender_name: currentUser.username,
     sender_tag: currentUser.tag,
     sender_pic: currentUser.profile_pic,
-    content: content.trim(),
+    content: contentValidation.value,
     timestamp: Date.now(),
   };
 
@@ -111,7 +116,7 @@ router.post("/send_direct_message", async (req, res) => {
       $setOnInsert: { participants },
       $push: { messages: message },
     },
-    { upsert: true, returnDocument: "after" }
+    { upsert: true, returnDocument: "after", runValidators: true }
   );
   await cache.del(`dm:${participants[0]}:${participants[1]}`);
 
@@ -159,8 +164,12 @@ router.post("/edit_direct_message", async (req, res) => {
   }
 
   const { friend_id, timestamp, content } = req.body;
-  if (!friend_id || !timestamp || !content || !content.trim()) {
-    return res.status(400).json({ status: 400, message: "Invalid input" });
+  const contentValidation = validateMessageContent(content);
+  if (!friend_id || !timestamp || !contentValidation.valid) {
+    return res.status(400).json({
+      status: 400,
+      message: contentValidation.message || "Invalid input",
+    });
   }
 
   const participants = getThreadParticipants(user.id, friend_id);
@@ -178,7 +187,7 @@ router.post("/edit_direct_message", async (req, res) => {
     return res.status(404).json({ status: 404, message: "Message not found" });
   }
 
-  message.content = content.trim();
+  message.content = contentValidation.value;
   await thread.save();
   await cache.del(`dm:${participants[0]}:${participants[1]}`);
 

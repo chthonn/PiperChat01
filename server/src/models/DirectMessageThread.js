@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MESSAGE_MAX_LENGTH } from "../lib/validation.js";
 
 const directMessageThreadSchema = new mongoose.Schema({
   participants: [String],
@@ -8,7 +9,7 @@ const directMessageThreadSchema = new mongoose.Schema({
       sender_name: String,
       sender_tag: String,
       sender_pic: String,
-      content: String,
+      content: { type: String, maxlength: MESSAGE_MAX_LENGTH },
       timestamp: Number,
     },
   ],
