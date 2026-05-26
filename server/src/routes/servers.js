@@ -262,10 +262,74 @@ router.post("/leave_server", async (req, res) => {
     return res.status(401).json({ message: "Unauthorized", status: 401 });
   }
 
-  if (!server_id || !mongoose.isValidObjectId(server_id)) {
-    return res.status(400).json({ status: 400, message: "Invalid input" });
+if (!server_id || !mongoose.isValidObjectId(server_id)) {
+  return res.status(400).json({ status: 400, message: "Invalid input" });
+}
+
+try {
+  const user = await User.findOne(
+    { _id: user_id.id, "servers.server_id": server_id },
+    { "servers.$": 1 }
+  );
+
+  if (!user || !user.servers || user.servers.length === 0) {
+    return res.status(404).json({
+      message: "Server not found",
+      status: 404,
+    });
   }
 
+  const role = user.servers[0].server_role;
+
+  if (role === "owner") {
+    const server = await Server.findOne(
+      { _id: server_id },
+      { users: 1 }
+    );
+
+    if (!server) {
+      return res.status(404).json({
+        message: "Server not found",
+        status: 404,
+      });
+    }
+
+    if (server.users.length === 1) {
+      await Server.updateOne(
+        { _id: server_id },
+        { $set: { active: false } }
+      );
+
+      await User.updateOne(
+        { _id: user_id.id },
+        { $pull: { servers: { server_id } } }
+      );
+
+      const io = getIO();
+
+      if (io) {
+        io.to(String(user_id.id)).emit("user_servers_updated", {
+          user_id: String(user_id.id),
+        });
+      }
+
+      return res.json({
+        status: 200,
+        message: "Server deleted as you were the only member",
+      });
+    }
+
+    return res.status(403).json({
+      message: "Transfer ownership before leaving the server",
+      status: 403,
+    });
+  }
+} catch (err) {
+  return res.status(500).json({
+    message: "Server error",
+    status: 500,
+  });
+}
   const leaveServer = { $pull: { servers: { server_id } } };
   try {
     const server = await Server.findById(server_id).lean();
@@ -280,7 +344,10 @@ router.post("/leave_server", async (req, res) => {
     }
 
     const deleteUserFromServer = { $pull: { users: { user_id: user_id.id } } };
-    const data2 = await Server.updateOne({ _id: server_id }, deleteUserFromServer);
+    const data2 = await Server.updateOne(
+      { _id: server_id },
+      deleteUserFromServer
+    );
     if (data2 && data2.modifiedCount > 0) {
       await User.updateOne({ _id: user_id.id }, leaveServer);
       const io = getIO();
@@ -298,7 +365,7 @@ router.post("/leave_server", async (req, res) => {
     }
     return res.status(500).json({ status: 500, message: "Update failed" });
   } catch (err) {
-    return res.status(500).json({ status: 500, message: "Server error" });
+    return res.status(500).json({ message: "Server error", status: 500 });
   }
 });
 
