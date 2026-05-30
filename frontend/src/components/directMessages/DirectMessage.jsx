@@ -245,7 +245,16 @@ function DirectMessage() {
         emoji,
       }),
     });
-    await res.json();
+    const data = await res.json();
+    if (data.status === 200 && data.reactions) {
+      setMessages((currentMessages) =>
+        (currentMessages || []).map((entry) =>
+          String(entry.timestamp) === String(message.timestamp)
+            ? { ...entry, reactions: data.reactions }
+            : entry
+        )
+      );
+    }
     setShowEmojiPicker(null);
   };
 

@@ -199,7 +199,14 @@ function Navbar2ChatValid({ onNavigate }) {
     if (!server_id || server_id === "@me") {
       return;
     }
+    const handleConnect = () => {
+      socket.emit("join_server", server_id);
+    };
+    socket.on("connect", handleConnect);
     socket.emit("join_server", server_id);
+    return () => {
+      socket.off("connect", handleConnect);
+    };
   }, [server_id]);
 
   useEffect(() => {

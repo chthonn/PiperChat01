@@ -38,13 +38,23 @@ function ValidChat() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if(socket && channel_id){
+    if (socket && channel_id) {
+      const handleConnect = () => {
+        socket.emit("join_chat", {
+          channel_id: channel_id,
+          server_id: server_id
+        });
+      };
+      socket.on("connect", handleConnect);
       socket.emit("join_chat", {
         channel_id: channel_id,
         server_id: server_id
-      })
+      });
+      return () => {
+        socket.off("connect", handleConnect);
+      };
     }
-  }, [channel_id,server_id]);
+  }, [channel_id, server_id]);
 
   const sendNow = async () => {
     if (!chat_message.trim()) return;
@@ -171,7 +181,16 @@ function ValidChat() {
         emoji,
       }),
     });
-    await res.json();
+    const data = await res.json();
+    if (data.status === 200 && data.reactions) {
+      setall_messages((currentMessages) =>
+        (currentMessages || []).map((entry) =>
+          String(entry.timestamp) === String(message.timestamp)
+            ? { ...entry, reactions: data.reactions }
+            : entry
+        )
+      );
+    }
     setShowEmojiPicker(null);
   };
 
