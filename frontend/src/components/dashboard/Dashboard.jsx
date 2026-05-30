@@ -166,7 +166,13 @@ function Dashboard() {
   }, [dispatch]);
 
   return (
-    <div className="relative h-dvh overflow-hidden bg-ink text-white">
+    <div
+  className="relative h-dvh overflow-hidden transition-all duration-300"
+  style={{
+    background: "var(--bg-primary)",
+    color: "var(--text-primary)",
+  }}
+>
       <div className="pointer-events-none absolute inset-0 bg-radial-glow" />
       <div className="pointer-events-none absolute inset-0 bg-grid-fade [background-size:36px_36px] opacity-15" />
 
