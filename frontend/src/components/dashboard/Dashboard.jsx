@@ -13,6 +13,7 @@ import {
   option_profile_pic,
   option_user_id,
   set_notification_preferences,
+  set_invisible_mode,
 } from "../../store/userCredsSlice";
 import { server_existence } from "../../store/currentPage";
 import { API_BASE_URL } from "../../config";
@@ -143,12 +144,13 @@ function Dashboard() {
     if (token) {
       try {
         const user_creds = jwt(token);
-        const { username, tag, profile_pic, id, notification_preferences } = user_creds;
+        const { username, tag, profile_pic, id, notification_preferences, invisible_mode } = user_creds;
 
         dispatch(change_username(username));
         dispatch(change_tag(tag));
         dispatch(option_profile_pic(resolveProfilePic(profile_pic, username)));
         dispatch(option_user_id(id));
+        dispatch(set_invisible_mode(Boolean(invisible_mode)));
 
         dispatch(
           set_notification_preferences({

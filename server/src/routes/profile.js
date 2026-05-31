@@ -111,6 +111,8 @@ router.patch("/", authToken, async (req, res) => {
         : normalizeUsername(req.body.username);
     const requestedProfilePic =
       req.body.profile_pic === undefined ? undefined : req.body.profile_pic;
+    const requestedInvisibleMode =
+      req.body.invisible_mode === undefined ? undefined : Boolean(req.body.invisible_mode);
 
     if (
       requestedUsername !== undefined &&
@@ -135,6 +137,7 @@ router.patch("/", authToken, async (req, res) => {
     const $set = {};
     if (requestedUsername !== undefined) $set.username = requestedUsername;
     if (requestedProfilePic !== undefined) $set.profile_pic = requestedProfilePic;
+    if (requestedInvisibleMode !== undefined) $set.invisible_mode = requestedInvisibleMode;
 
     if (Object.keys($set).length === 0) {
       return res.status(400).json({ message: "No changes", status: 400 });
@@ -168,6 +171,7 @@ router.patch("/", authToken, async (req, res) => {
         username: updated.username,
         tag: updated.tag,
         profile_pic: updated.profile_pic,
+        invisible_mode: updated.invisible_mode,
       },
     });
   } catch (err) {

@@ -70,6 +70,7 @@ const userSchema = new mongoose.Schema(
       server_messages: Boolean,
       server_invites: Boolean,
     },
+    invisible_mode: Boolean,
   },
   { typeKey: "$type" }
 );

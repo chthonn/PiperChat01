@@ -45,8 +45,13 @@ function NotificationListener() {
       dispatch(set_user_presence({ user_id, online }));
     };
 
+    const handleConnect = () => {
+      socket.emit("get_userid", userId);
+    };
+
     socket.on("presence_snapshot", handlePresenceSnapshot);
     socket.on("presence_updated", handlePresenceUpdated);
+    socket.on("connect", handleConnect);
     socket.emit("get_userid", userId);
 
     const handleUserServersUpdated = ({ user_id }) => {
@@ -78,6 +83,7 @@ function NotificationListener() {
       socket.off("presence_snapshot", handlePresenceSnapshot);
       socket.off("presence_updated", handlePresenceUpdated);
       socket.off("user_servers_updated", handleUserServersUpdated);
+      socket.off("connect", handleConnect);
     };
   }, [userId, url, dispatch]);
 
