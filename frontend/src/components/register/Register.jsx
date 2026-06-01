@@ -238,9 +238,6 @@ function Register() {
 
   const register_req = async (e) => {
     e.preventDefault();
-    var dob = `${user_values.month_value} ${user_values.date_value} , ${user_values.year_value}`;
-    const d = new Date(dob);
-    let day = d.getDate();
 
     if (!url) {
       setalert_message("Missing VITE_URL. Check frontend/.env.");
@@ -248,7 +245,24 @@ function Register() {
       return;
     }
 
-    if (Number(user_values.date_value) !== day) {
+    // Build a reliable ISO date string (YYYY-MM-DD) so new Date() parses it
+    // correctly in every browser. month_value is now the full month name (e.g.
+    // "May"), so we look up its 1-based index for zero-padding.
+    const monthIndex = months.indexOf(user_values.month_value) + 1; // 1–12
+    const paddedMonth = String(monthIndex).padStart(2, "0");
+    const paddedDay = String(user_values.date_value).padStart(2, "0");
+    const isoDate = `${user_values.year_value}-${paddedMonth}-${paddedDay}`;
+    const d = new Date(isoDate);
+    const day = d.getDate(); // returns NaN for impossible dates like Feb 30
+
+    // Human-readable dob sent to the server (e.g. "May 16 , 2000")
+    var dob = `${user_values.month_value} ${user_values.date_value} , ${user_values.year_value}`;
+
+    if (
+      isNaN(d.getTime()) ||
+      Number(user_values.date_value) !== day ||
+      monthIndex !== d.getMonth() + 1
+    ) {
       setdate_validation(true);
     } else if (user_values.password !== user_values.confirm_password) {
       setpassword_validation(true);
@@ -519,7 +533,9 @@ function Register() {
                 >
                   <option value="" disabled>Month</option>
                   {months.map((m, idx) => (
-                    <option key={`month-${idx + 1}`} value={idx + 1} style={{ background: "#1a1a2e", color: "#f0f0f5" }}>
+                    // value is the month name so the date string is human-readable
+                    // and unambiguous when passed to new Date()
+                    <option key={`month-${idx + 1}`} value={m} style={{ background: "#1a1a2e", color: "#f0f0f5" }}>
                       {m}
                     </option>
                   ))}

@@ -7,8 +7,11 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "dev:local": "node dev-server.mjs",
+    "watch:local": "nodemon --exec 'node dev-server.mjs' --ext js,mjs,json",
     "test:auth:unit": "node scripts/run-auth-jwt-unit.mjs",
     "test:auth": "node scripts/run-auth-integration.mjs",
+    "test:unread": "node scripts/test-unread-edge-cases.mjs",
     "gmail:oauth-setup": "node scripts/gmail-oauth-setup.mjs"
   },
   "author": "shunnu",

@@ -12,6 +12,7 @@ import Invite from "./components/invite/Invite";
 import NotificationListener from "./components/notifications/NotificationListener";
 import NotFound from "./components/notFound/NotFound";
 import { AnimatePresence } from "framer-motion";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
 import { Analytics } from "@vercel/analytics/react";
 
 function AnimatedRoutes() {
@@ -34,13 +35,15 @@ function AnimatedRoutes() {
 
 function App() {
   return (
-    <div>
-      <Router>
-        <NotificationListener />
-        <AnimatedRoutes />
-      </Router>
-      <Analytics />
-    </div>
+    <ErrorBoundary>
+      <div>
+        <Router>
+          <NotificationListener />
+          <AnimatedRoutes />
+        </Router>
+        <Analytics />
+      </div>
+    </ErrorBoundary>
   );
 }
 
