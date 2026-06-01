@@ -176,6 +176,15 @@ All backend APIs are mounted under:
 /api/v1
 ```
 
+## Screenshots
+
+### Login Page
+
+![Login Page](login.png)
+
+### Chat UI
+
+![Chat UI](chat-ui.png)
 ## Scripts
 
 ### Server
