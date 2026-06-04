@@ -165,6 +165,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
         }
         if (data.token) {
           localStorage.setItem("token", data.token);
+          window.dispatchEvent(new Event("piperchat:auth-token"));
         }
         if (data.notification_preferences) {
           dispatch(set_notification_preferences(data.notification_preferences));
@@ -232,6 +233,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
       }
 
       localStorage.setItem("token", data.token);
+      window.dispatchEvent(new Event("piperchat:auth-token"));
       const decoded = jwt(data.token);
       
       // Update Redux with NEW data - use finalProfilePic if file was uploaded, otherwise use decoded value

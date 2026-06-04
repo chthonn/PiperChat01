@@ -29,6 +29,7 @@ const Auth = () => {
         setauth_check(true);
       } else {
         localStorage.removeItem("token");
+        window.dispatchEvent(new Event("piperchat:auth-token"));
         setToken(null);
         setauth_check(false);
       }
