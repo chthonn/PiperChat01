@@ -154,12 +154,6 @@ router.post("/store_message", expressRateLimit("chat"), storeMessageValidator, v
 router.post("/get_messages", getMessagesValidator, validate, async (req, res) => {
   const { channel_id, server_id } = req.body;
 
-  if (!channel_id || !server_id) {
-    return res
-      .status(400)
-      .json({ error: "Invalid request. Missing channel_id or server_id." });
-  }
-
   try {
     const cacheKey = `chat:${server_id}:${channel_id}`;
     const cached = await cache.getJson(cacheKey);
@@ -192,10 +186,6 @@ router.post("/edit_server_message", editServerMessageValidator, validate, async 
     return;
   }
   const senderId = user.id;
-
-  if (!server_id || !channel_id || !timestamp || !content || !content.trim()) {
-    return res.status(400).json({ status: 400, message: "Invalid input" });
-  }
 
   try {
     const chatDoc = await Chat.findOne({
@@ -248,10 +238,6 @@ router.post("/delete_server_message", deleteServerMessageValidator, validate, as
     return;
   }
   const senderId = user.id;
-
-  if (!server_id || !channel_id || !timestamp) {
-    return res.status(400).json({ status: 400, message: "Invalid input" });
-  }
 
   try {
     const chatDoc = await Chat.findOne({
