@@ -10,6 +10,7 @@ import logger from "../lib/winston.js";
 import { authToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 import { generateOTP, sendMail } from "../services/email.js";
+import { storeOtp, getStoredOtp, deleteOtp } from "../services/otpService.js";
 import {
   isUsernameAvailable,
   signup,
@@ -101,27 +102,38 @@ router.post("/signup", expressRateLimit("auth"), async (req, res) => {
       password: hashedPassword,
       dob,
       authorized,
-      verification: [{ timestamp: Date.now(), code: otp }],
     });
 
-    const mailResult = await sendMail(otp, email, username);
     try {
       await newUser.save();
+
+      const otpStored = await storeOtp(email, otp);
+      if (!otpStored) {
+        return res.status(500).json({
+          message: "otp_storage_failed",
+          status: 500,
+          email_sent: false,
+        });
+      }
+
+      const mailResult = await sendMail(otp, email, username);
+      return res.status(201).json({
+        message: "data saved",
+        status: 201,
+        email_sent: mailResult.ok,
+      });
     } catch (err) {
       return res
         .status(500)
         .json({ message: "Server error", status: 500, email_sent: false });
     }
-    return res.status(201).json({
-      message: "data saved",
-      status: 201,
-      email_sent: mailResult.ok,
-    });
   }
 
-  if (response.message === "not_TLE" || response.message === "TLE_2") {
+  if (response.message === "existing_unverified_different_username") {
     const usernameResponse = await isUsernameAvailable(username);
     const tag = usernameResponse.final_tag;
+    const otp = generateOTP();
+
     const accountCreds = {
       $set: {
         username,
@@ -132,7 +144,7 @@ router.post("/signup", expressRateLimit("auth"), async (req, res) => {
         authorized,
       },
     };
-    let otp = response.message === "not_TLE" ? response.otp : generateOTP();
+
     const newResponse = await updatingCreds(accountCreds, otp, email, username);
     return res.status(newResponse.status).json({
       message: newResponse.message,
@@ -141,37 +153,20 @@ router.post("/signup", expressRateLimit("auth"), async (req, res) => {
     });
   }
 
-  if (response.message === "not_TLE_2" || response.message === "TLE") {
+  if (response.message === "existing_unverified_same_username") {
     const tag = response.tag;
-    let accountCreds;
-    let otp;
+    const otp = generateOTP();
 
-    if (response.message === "not_TLE_2") {
-      accountCreds = {
-        $set: {
-          username,
-          tag,
-          email,
-          password: hashedPassword,
-          dob,
-          authorized,
-        },
-      };
-      otp = response.otp;
-    } else {
-      otp = generateOTP();
-      accountCreds = {
-        $set: {
-          username,
-          email,
-          tag,
-          password: hashedPassword,
-          dob,
-          authorized,
-          verification: [{ timestamp: Date.now(), code: otp }],
-        },
-      };
-    }
+    const accountCreds = {
+      $set: {
+        username,
+        tag,
+        email,
+        password: hashedPassword,
+        dob,
+        authorized,
+      },
+    };
 
     const newResponse = await updatingCreds(accountCreds, otp, email, username);
     return res.status(newResponse.status).json({
@@ -192,30 +187,30 @@ router.post("/verify", expressRateLimit("otp"), async (req, res) => {
       return res.status(404).json({ error: "User not found", status: 404 });
     }
 
-    const currentTimestamp = user.verification?.[0]?.timestamp ?? 0;
     const username = user.username;
-    const currentOtp = user.verification?.[0]?.code;
+    const currentOtp = await getStoredOtp(email);
 
-    if (Date.now() - currentTimestamp < config.OTP_TTL_MS) {
+    if (currentOtp) {
       if (otpValue === currentOtp) {
         await User.updateOne({ email }, { $set: { authorized: true } });
-        return res.status(201).json({
-          message: "Congrats you are verified now",
-          status: 201,
-        });
+        await deleteOtp(email);
+        return res
+          .status(201)
+          .json({ message: "Congrats you are verified now", status: 201 });
       }
-      return res.status(432).json({ error: "incorrect passowrd", status: 432 });
+
+      return res.status(432).json({ error: "Invalid otp", status: 432 });
     }
 
     const otp = generateOTP();
-    await User.updateOne(
-      { email },
-      {
-        $set: {
-          verification: [{ timestamp: Date.now(), code: otp }],
-        },
-      },
-    );
+    const otpStored = await storeOtp(email, otp);
+    if (!otpStored) {
+      return res.status(500).json({
+        error: "otp_storage_failed",
+        status: 500,
+      });
+    }
+
     await sendMail(otp, email, username);
     return res.status(442).json({ error: "otp changed", status: 442 });
   } catch (err) {
@@ -237,10 +232,15 @@ router.post("/resend_otp", expressRateLimit("otp"), async (req, res) => {
 
     const username = user.username;
     const otp = generateOTP();
-    await User.updateOne(
-      { email },
-      { $set: { verification: [{ timestamp: Date.now(), code: otp }] } },
-    );
+    const otpStored = await storeOtp(email, otp);
+    if (!otpStored) {
+      return res.status(500).json({
+        error: "otp_storage_failed",
+        status: 500,
+        email_sent: false,
+      });
+    }
+
     const mailResult = await sendMail(otp, email, username);
     return res.status(201).json({
       message: "otp resent",

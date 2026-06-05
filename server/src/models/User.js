@@ -51,12 +51,6 @@ const userSchema = new mongoose.Schema(
         tag: String,
       },
     ],
-    verification: [
-      {
-        timestamp: Number,
-        code: String,
-      },
-    ],
     invites: [
       {
         server_id: String,
