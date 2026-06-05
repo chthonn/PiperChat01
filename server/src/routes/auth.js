@@ -299,6 +299,7 @@ router.post("/signin", expressRateLimit("auth"), async (req, res) => {
     const token = jwt.sign(
       buildAuthUserJwtPayload(user),
       config.ACCESS_TOKEN,
+      { expiresIn: "7d" }
     );
     return res
       .status(201)
