@@ -14,6 +14,7 @@ import { getChats } from "../services/chatService.js";
 import { incrementServerUnread } from "../services/unreadService.js";
 import { getIO } from "../socket/runtime.js";
 
+import { authToken } from "../middleware/auth.js";
 import expressRateLimit from "../middleware/rateLimit.js";
 
 import { deleteServerMessageValidator, editServerMessageValidator, getMessagesValidator, storeMessageValidator } from "../validators/chat.js";
@@ -56,7 +57,7 @@ function findChatMessage(channel, timestamp, senderId) {
   );
 }
 
-router.post("/store_message", expressRateLimit("chat"), storeMessageValidator, validate, async (req, res) => {
+router.post("/store_message", authToken, expressRateLimit("chat"), storeMessageValidator, validate, async (req, res) => {
   const {
     message,
     server_id,
@@ -169,7 +170,7 @@ router.post("/store_message", expressRateLimit("chat"), storeMessageValidator, v
   }
 });
 
-router.post("/get_messages", getMessagesValidator, validate, async (req, res) => {
+router.post("/get_messages", authToken, getMessagesValidator, validate, async (req, res) => {
   const { channel_id, server_id } = req.body;
 
   try {
@@ -246,7 +247,7 @@ router.post("/edit_server_message", editServerMessageValidator, validate, async 
   }
 });
 
-router.post("/toggle_server_message_pin", async (req, res) => {
+router.post("/toggle_server_message_pin", authToken, async (req, res) => {
   const { server_id, channel_id, timestamp, sender_id } = req.body;
   const user = getAuthorizedUser(req, res);
   if (!user) {
