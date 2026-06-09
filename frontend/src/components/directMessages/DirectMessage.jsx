@@ -59,6 +59,10 @@ function DirectMessage() {
   }, [activeFriend, dispatch, loadMessages, url]);
 
   useEffect(() => {
+    messagesEndRef.current?.scrollIntoView();
+  }, [messages]);
+
+  useEffect(() => {
     const handleIncomingMessage = (message) => {
       if (!activeFriend || message.friend_id !== activeFriend.id) {
         return;
@@ -299,7 +303,7 @@ function DirectMessage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4">
         <div className="space-y-3">
           {messages.map((message) => {
             const mine = message.sender_id === currentUser.id;
@@ -461,6 +465,7 @@ function DirectMessage() {
             );
           })}
         </div>
+        <div ref={messagesEndRef} />
       </div>
 
       {friendIsTyping && (

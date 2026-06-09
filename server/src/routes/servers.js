@@ -20,9 +20,19 @@ import {
 } from "../services/serverService.js";
 import { getIO } from "../socket/runtime.js";
 
+import {
+  addNewCategoryValidator,
+  addNewChannelValidator,
+  createServerValidator,
+  deleteServerValidator,
+  leaveServerValidator,
+  serverInfoValidator,
+} from "../validators/servers.js";
+import validate from "../middleware/validate.js";
+
 const router = express.Router();
 
-router.post("/create_server", async (req, res) => {
+router.post("/create_server", createServerValidator, validate, async (req, res) => {
   let user_id;
   try {
     user_id = jwt.verify(
@@ -63,7 +73,7 @@ router.post("/create_server", async (req, res) => {
   }
 });
 
-router.post("/server_info", async (req, res) => {
+router.post("/server_info", serverInfoValidator, validate, async (req, res) => {
   const { server_id } = req.body;
   let user_id;
   try {
@@ -86,7 +96,7 @@ router.post("/server_info", async (req, res) => {
   res.json(serverInfo);
 });
 
-router.post("/add_new_channel", async (req, res) => {
+router.post("/add_new_channel", addNewChannelValidator, validate, async (req, res) => {
   const { category_id, channel_name, channel_type, server_id } = req.body;
   const newChannel = {
     $push: {
@@ -120,7 +130,7 @@ router.post("/add_new_channel", async (req, res) => {
   }
 });
 
-router.post("/add_new_category", async (req, res) => {
+router.post("/add_new_category", addNewCategoryValidator, validate, async (req, res) => {
   const { category_name, server_id } = req.body;
   const newCategory = {
     $push: { categories: { category_name, channels: [] } },
@@ -146,7 +156,7 @@ router.post("/add_new_category", async (req, res) => {
   }
 });
 
-router.post("/delete_server", async (req, res) => {
+router.post("/delete_server", deleteServerValidator, validate, async (req, res) => {
   const { server_id } = req.body;
   let user_id;
   try {
@@ -250,7 +260,7 @@ router.post("/remove_member", async (req, res) => {
   }
 });
 
-router.post("/leave_server", async (req, res) => {
+router.post("/leave_server", leaveServerValidator, validate, async (req, res) => {
   const { server_id } = req.body;
   let user_id;
   try {

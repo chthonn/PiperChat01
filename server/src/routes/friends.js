@@ -11,14 +11,17 @@ import {
   removePendingRequest,
 } from "../services/friendService.js";
 
+import {
+  addFriendValidator,
+  processRequestValidator,
+} from "../validators/friends.js";
+import validate from "../middleware/validate.js";
+
 const router = express.Router();
 
-router.post("/add_friend", async (req, res) => {
+router.post("/add_friend", addFriendValidator, validate, async (req, res) => {
   const friend = req.body.friend;
   const hashIndex = friend.indexOf("#");
-  if (hashIndex === -1) {
-    return res.status(400).json({ message: "Invalid Input", status: 400 });
-  }
 
   const name = friend.slice(0, hashIndex).trim();
   const userTag = friend.slice(hashIndex + 1);
@@ -164,7 +167,7 @@ router.get("/user_relations", async (req, res) => {
   }
 });
 
-router.post("/process_req", async (req, res) => {
+router.post("/process_req", processRequestValidator, validate, async (req, res) => {
   try {
     const { message, friend_data } = req.body;
     const { id, profile_pic, tag, username } = friend_data || {};
@@ -177,10 +180,6 @@ router.post("/process_req", async (req, res) => {
       );
     } catch (e) {
       return res.status(401).json({ message: "Unauthorized", status: 401 });
-    }
-
-    if (!id) {
-      return res.status(400).json({ message: "Invalid friend", status: 400 });
     }
 
     if (message === "Accept") {
@@ -207,7 +206,6 @@ router.post("/process_req", async (req, res) => {
     if (message === "Unblock") {
       return res.status(200).json({ message: "OK", status: 200 });
     }
-    return res.status(400).json({ message: "Unknown action", status: 400 });
   } catch (err) {
     return res.status(500).json({ message: "Server error", status: 500 });
   }

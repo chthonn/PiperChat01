@@ -75,4 +75,16 @@ async function del(key) {
   }
 }
 
-export { getJson, setJson, del };
+async function closeRedis() {
+  if (!redisConnectPromise) return;
+
+  const client = await redisConnectPromise;
+
+  if (client?.isOpen) {
+    await client.quit();
+  }
+
+  redisConnectPromise = null;
+}
+
+export { getJson, setJson, del, closeRedis };

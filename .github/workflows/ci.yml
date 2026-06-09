@@ -56,6 +56,16 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --health-start-period 20s
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     defaults:
       run:
@@ -78,9 +88,10 @@ jobs:
       - name: Auth unit checks (JWT / bcrypt shape)
         run: npm run test:auth:unit
 
-      - name: Auth integration (Mongo + HTTP)
+      - name: Auth integration (Mongo + Redis + HTTP)
         env:
           MONGO_URI: mongodb://127.0.0.1:27017/piperchat_ci_auth
           ACCESS_TOKEN: ci-test-jwt-secret-do-not-use-in-production-32chars-min
           DEFAULT_PROFILE_PIC: https://example.com/default.png
+          REDIS_URL: redis://127.0.0.1:6379
         run: npm run test:auth

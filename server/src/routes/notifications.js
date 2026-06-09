@@ -12,6 +12,12 @@ import {
   getUnreadSummary,
 } from "../services/unreadService.js";
 
+import {
+  markChannelReadValidator,
+  markDirectMessagesReadValidator,
+} from "../validators/notifications.js";
+import validate from "../middleware/validate.js";
+
 const router = express.Router();
 
 function getAuthorizedUser(req) {
@@ -32,7 +38,7 @@ router.get("/unread_summary", authToken, async (req, res) => {
   }
 });
 
-router.post("/mark_direct_messages_read", authToken, async (req, res) => {
+router.post("/mark_direct_messages_read", authToken, markDirectMessagesReadValidator, validate, async (req, res) => {
   try {
     const user = getAuthorizedUser(req);
     await clearDmUnread(user.id, req.body.friend_id);
@@ -43,7 +49,7 @@ router.post("/mark_direct_messages_read", authToken, async (req, res) => {
   }
 });
 
-router.post("/mark_channel_read", authToken, async (req, res) => {
+router.post("/mark_channel_read", authToken, markChannelReadValidator, validate, async (req, res) => {
   try {
     const user = getAuthorizedUser(req);
     const { server_id, channel_id } = req.body;
