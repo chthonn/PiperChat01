@@ -195,6 +195,8 @@ function Register() {
   const [submitting, setSubmitting] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
 
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -455,16 +457,32 @@ function Register() {
             <div>
               <Label>Confirm Password</Label>
               <div className="space-y-1.5">
-                <StyledInput
-                  name="confirm_password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={user_values.confirm_password}
-                  onChange={handle_user_values}
-                  required
-                  disabled={submitting || verifying}
-                  placeholder="Confirm your password"
-                />
+                <div className="relative">
+                  <StyledInput
+                    name="confirm_password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={user_values.confirm_password}
+                    onChange={handle_user_values}
+                    required
+                    disabled={submitting || verifying}
+                    placeholder="Confirm your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                    style={{ cursor: "pointer" }}
+                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                  >
+                    {showConfirmPassword ? (
+                      <FiEyeOff size={14} style={{ color: "var(--text-secondary)" }} />
+                    ) : (
+                      <FiEye size={14} style={{ color: "var(--text-secondary)" }} />
+                    )}
+                  </button>
+                </div>
+
                 <AnimatePresence>
                   {password_validation && (
                     <motion.div
@@ -484,6 +502,7 @@ function Register() {
                 </AnimatePresence>
               </div>
             </div>
+
 
             {/* Date of Birth */}
             <div
