@@ -28,6 +28,7 @@ import {
   leaveServerValidator,
   serverInfoValidator,
 } from "../validators/servers.js";
+import { authToken } from "../middleware/auth.js";
 import validate from "../middleware/validate.js";
 
 const router = express.Router();
@@ -96,7 +97,7 @@ router.post("/server_info", serverInfoValidator, validate, async (req, res) => {
   res.json(serverInfo);
 });
 
-router.post("/add_new_channel", addNewChannelValidator, validate, async (req, res) => {
+router.post("/add_new_channel", authToken, addNewChannelValidator, validate, async (req, res) => {
   const { category_id, channel_name, channel_type, server_id } = req.body;
   const newChannel = {
     $push: {
@@ -130,7 +131,7 @@ router.post("/add_new_channel", addNewChannelValidator, validate, async (req, re
   }
 });
 
-router.post("/add_new_category", addNewCategoryValidator, validate, async (req, res) => {
+router.post("/add_new_category", authToken, addNewCategoryValidator, validate, async (req, res) => {
   const { category_name, server_id } = req.body;
   const newCategory = {
     $push: { categories: { category_name, channels: [] } },

@@ -17,11 +17,12 @@ import {
   createInviteLinkValidator,
   inviteLinkInfoValidator,
 } from "../validators/invites.js";
+import { authToken } from "../middleware/auth.js";
 import validate from "../middleware/validate.js";
 
 const router = express.Router();
 
-router.post("/create_invite_link", createInviteLinkValidator, validate, async (req, res) => {
+router.post("/create_invite_link", authToken, createInviteLinkValidator, validate, async (req, res) => {
   const {
     inviter_name,
     inviter_id,
@@ -79,7 +80,7 @@ router.post("/create_invite_link", createInviteLinkValidator, validate, async (r
   });
 });
 
-router.post("/invite_link_info", inviteLinkInfoValidator, validate, async (req, res) => {
+router.post("/invite_link_info", authToken, inviteLinkInfoValidator, validate, async (req, res) => {
   const { invite_link } = req.body;
   try {
     const invite = await Invite.findOne({ invite_code: invite_link }).lean();
@@ -101,7 +102,7 @@ router.post("/invite_link_info", inviteLinkInfoValidator, validate, async (req, 
   }
 });
 
-router.post("/accept_invite", acceptInviteValidator, validate, async (req, res) => {
+router.post("/accept_invite", authToken, acceptInviteValidator, validate, async (req, res) => {
   const { user_details, server_details } = req.body;
   const { id } = user_details;
   const server_id = server_details.invite_details.server_id;
