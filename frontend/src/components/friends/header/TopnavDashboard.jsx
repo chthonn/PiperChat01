@@ -11,6 +11,7 @@ import {
   Clock,
   Ban,
   CircleDot,
+  Globe2,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useTheme } from "../../../context/ThemeContext";
@@ -147,6 +148,27 @@ function TopnavDashboard({button_status, onToggleSidebar}) {
           >
             <Ban className="h-4 w-4" />
             Blocked
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              change_option_value(
+                5,
+                "STRANGER CONNECT",
+                true,
+                "Start anonymous conversations with random online users instantly."
+              )
+            }
+            className={[
+              "flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-extrabold tracking-wider transition",
+              active === 5
+                ? "border-cyan-400/40 bg-cyan-500/10 text-cyan-200"
+                : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white",
+            ].join(" ")}
+          >
+            <Globe2 className="h-4 w-4" />
+            Stranger Connect
           </button>
 
           <button
