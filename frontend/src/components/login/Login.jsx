@@ -21,7 +21,7 @@ function StyledInput({ ...props }) {
   return (
     <input
       {...props}
-      className="w-full h-11 rounded-xl px-4 text-sm font-medium outline-none transition-all duration-200"
+      className={`w-full h-11 rounded-xl px-4 text-sm font-medium outline-none transition-all duration-200 ${props.className || ""}`}
       style={{
         background: "rgba(255,255,255,0.05)",
         border: "1px solid rgba(255,255,255,0.1)",
@@ -219,16 +219,17 @@ function Login() {
               required
               disabled={submitting}
               placeholder="••••••••"
+              className="pr-12"
             />
             <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[70%] -translate-y-1/2"
-                style={{cursor : 'pointer'}}
-              >
-                {showPassword ? ( <FiEyeOff size={14} style={{ color: "var(--text-secondary)" }} />) : (
-                  <FiEye size={14} style={{ color: "var(--text-secondary)" }} />)}
-              </button>
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-[2.65rem] inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/10 text-white transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/70"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              title={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <FiEyeOff size={15} /> : <FiEye size={15} />}
+            </button>
           </div>
 
           <div className="pt-1">

@@ -75,6 +75,17 @@
   display: none;
 }
 
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:focus,
+.auth-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f0f0f5;
+  caret-color: #a855f7;
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.05) inset;
+  box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.05) inset;
+  transition: background-color 9999s ease-out 0s;
+}
+
 .forestDark {
   --bg-primary: #3f5a46;
   --text-primary: white;

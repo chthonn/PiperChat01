@@ -28,7 +28,7 @@ function StyledInput({ ...props }) {
   return (
     <input
       {...props}
-      className="w-full h-10 rounded-xl px-4 text-sm font-medium outline-none transition-all duration-200"
+      className={`w-full h-10 rounded-xl px-4 text-sm font-medium outline-none transition-all duration-200 ${props.className || ""}`}
       style={{
         background: "rgba(255,255,255,0.05)",
         border: "1px solid rgba(255,255,255,0.1)",
@@ -405,6 +405,7 @@ function Register() {
                 required
                 disabled={submitting || verifying}
                 placeholder="you@example.com"
+                className="auth-input"
               />
             </div>
 
