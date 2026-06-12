@@ -4,6 +4,7 @@ import AuthShell from "../auth/AuthShell";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import { API_BASE_URL } from "../../config";
+import PasswordStrengthGuide from "../auth/PasswordStrengthGuide";
 
 
 function Label({ children }) {
@@ -229,6 +230,7 @@ function Login() {
                 {showPassword ? ( <FiEyeOff size={14} style={{ color: "var(--text-secondary)" }} />) : (
                   <FiEye size={14} style={{ color: "var(--text-secondary)" }} />)}
               </button>
+            <PasswordStrengthGuide password={user_values.password} />
           </div>
 
           <div className="pt-1">
