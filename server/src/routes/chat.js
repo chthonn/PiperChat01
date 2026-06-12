@@ -17,6 +17,7 @@ import { getIO } from "../socket/runtime.js";
 import expressRateLimit from "../middleware/rateLimit.js";
 
 const router = express.Router();
+const MAX_CHAT_MESSAGE_LENGTH = 2000;
 
 async function shouldSendNotification(userId, preferenceKey) {
   try {
@@ -66,8 +67,19 @@ router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
     profile_pic,
   } = req.body;
 
+  if (
+    typeof message !== "string" ||
+    !message.trim() ||
+    message.length > MAX_CHAT_MESSAGE_LENGTH
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: `Message must be 1-${MAX_CHAT_MESSAGE_LENGTH} characters.`,
+    });
+  }
+
   const chatMessage = {
-    content: message,
+    content: message.trim(),
     sender_id: id,
     sender_name: username,
     sender_pic: profile_pic,
@@ -209,7 +221,14 @@ router.post("/edit_server_message", async (req, res) => {
   }
   const senderId = user.id;
 
-  if (!server_id || !channel_id || !timestamp || !content || !content.trim()) {
+  if (
+    !server_id ||
+    !channel_id ||
+    !timestamp ||
+    typeof content !== "string" ||
+    !content.trim() ||
+    content.length > MAX_CHAT_MESSAGE_LENGTH
+  ) {
     return res.status(400).json({ status: 400, message: "Invalid input" });
   }
 

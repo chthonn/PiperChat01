@@ -20,6 +20,8 @@ import { Input } from "../ui/input";
 import { close_direct_message } from "../../store/directMessageSlice";
 import { API_BASE_URL } from "../../config";
 
+const MAX_SERVER_NAME_LENGTH = 100;
+
 function Navbar({ new_req_recieved, user_cred, onNavigate }) {
   const dispatch = useDispatch();
   const unreadServers = useSelector((state) => state.unread.servers);
@@ -338,7 +340,12 @@ function Navbar({ new_req_recieved, user_cred, onNavigate }) {
 
                 <div className="flex-1 space-y-2">
                   <div className="text-xs font-extrabold tracking-widest text-white/45">
-                    SERVER NAME
+                    <div className="flex items-center justify-between">
+                      <span>SERVER NAME</span>
+                      <span>
+                        {server_details.name.length}/{MAX_SERVER_NAME_LENGTH}
+                      </span>
+                    </div>
                   </div>
                   <Input
                     value={server_details.name}
@@ -348,6 +355,7 @@ function Navbar({ new_req_recieved, user_cred, onNavigate }) {
                         name: e.target.value,
                       })
                     }
+                    maxLength={MAX_SERVER_NAME_LENGTH}
                   />
                 </div>
               </div>

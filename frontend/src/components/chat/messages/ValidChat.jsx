@@ -9,6 +9,8 @@ import { Button } from "../../ui/button";
 import { resolveProfilePic, handleImageError } from "../../../shared/imageFallbacks";
 import { API_BASE_URL } from "../../../config";
 
+const MAX_CHAT_MESSAGE_LENGTH = 2000;
+
 function ValidChat() {
   const dispatch = useDispatch();
   const url = API_BASE_URL;
@@ -49,7 +51,7 @@ function ValidChat() {
   };
 
   const handleMessageChange = (e) => {
-    const nextMessage = e.target.value;
+    const nextMessage = e.target.value.slice(0, MAX_CHAT_MESSAGE_LENGTH);
     setchat_message(nextMessage);
 
     if (!channel_id || !server_id || !id) {
@@ -85,6 +87,7 @@ function ValidChat() {
 
   const sendNow = async () => {
     if (!chat_message.trim()) return;
+    if (chat_message.length > MAX_CHAT_MESSAGE_LENGTH) return;
     const message_to_send = chat_message;
     const timestamp = Date.now();
     setchat_message("");
@@ -559,7 +562,13 @@ function ValidChat() {
         </div>
       ) : null}
 
-      <div className="border-t border-white/10 bg-black/25 p-3">
+        <div className="border-t border-white/10 bg-black/25 p-3">
+        <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-white/35">
+          <span>Message</span>
+          <span>
+            {chat_message.length}/{MAX_CHAT_MESSAGE_LENGTH}
+          </span>
+        </div>
         <div className="flex items-center gap-2">
           <Input
             value={chat_message}
@@ -571,6 +580,7 @@ function ValidChat() {
             }}
             onChange={handleMessageChange}
             placeholder={`Message #${channel_name}`}
+            maxLength={MAX_CHAT_MESSAGE_LENGTH}
             className="flex-1"
           />
           <Button

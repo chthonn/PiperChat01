@@ -21,6 +21,7 @@ import {
 import { getIO } from "../socket/runtime.js";
 
 const router = express.Router();
+const MAX_SERVER_NAME_LENGTH = 100;
 
 router.post("/create_server", async (req, res) => {
   let user_id;
@@ -33,9 +34,22 @@ router.post("/create_server", async (req, res) => {
     return res.status(401).json({ message: "Unauthorized", status: 401 });
   }
 
+  const serverDetails = req.body.server_details || {};
+  const normalizedName = String(serverDetails.name || "").trim();
+  if (
+    typeof serverDetails.name !== "string" ||
+    !normalizedName ||
+    normalizedName.length > MAX_SERVER_NAME_LENGTH
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: `Server name must be 1-${MAX_SERVER_NAME_LENGTH} characters.`,
+    });
+  }
+
   const serverTemplate = await createServerFromTemplate(
     user_id,
-    req.body.server_details,
+    { ...serverDetails, name: normalizedName },
     req.body.server_image
   );
   const addNewChat = await createChat(serverTemplate.server_id);
