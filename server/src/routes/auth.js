@@ -204,7 +204,7 @@ router.post("/verify", expressRateLimit("otp"), async (req, res) => {
           status: 201,
         });
       }
-      return res.status(432).json({ error: "incorrect passowrd", status: 432 });
+      return res.status(401).json({ error: "incorrect OTP", status: 401 });
     }
 
     const otp = generateOTP();
