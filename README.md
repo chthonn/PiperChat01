@@ -61,6 +61,8 @@ PiperChat01/
 - `server/` → Express + MongoDB + Socket.IO API (ESM)
 - `frontend/` → Vite + Tailwind UI
 
+For contribution workflow and local setup notes, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## System Architecture
 
 To help contributors understand the data flow, here is the technical visualization of how PiperChat components interact:
