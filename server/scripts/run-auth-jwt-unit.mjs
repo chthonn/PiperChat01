@@ -30,7 +30,7 @@ const payload = buildAuthUserJwtPayload(mockUser);
 const token = jwt.sign(payload, secret);
 const decoded = jwt.verify(token, secret);
 
-const allowed = new Set(["id", "email", "username", "tag", "profile_pic", "notification_preferences", "iat"]);
+const allowed = new Set(["id", "email", "username", "tag", "profile_pic", "bio", "notification_preferences", "iat"]);
 for (const k of Object.keys(decoded)) {
   assert(allowed.has(k), `unexpected JWT claim: ${k}`);
 }
@@ -39,6 +39,7 @@ assert(decoded.email === mockUser.email);
 assert(decoded.username === mockUser.username);
 assert(decoded.tag === mockUser.tag);
 assert(decoded.profile_pic === mockUser.profile_pic);
+assert(decoded.bio === "");
 
 const hash = await bcrypt.hash("SomePassword9", 10);
 assert(BCRYPT_RE.test(hash), "bcryptjs output should match hash detector regex");

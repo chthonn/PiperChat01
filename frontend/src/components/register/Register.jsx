@@ -171,6 +171,29 @@ function AlertBanner({ message, onClose }) {
   );
 }
 
+function formatSignupError(data) {
+  if (data?.errors) {
+    const messages = Object.values(data.errors)
+      .flatMap((fieldErrors) =>
+        Object.values(fieldErrors).map((entry) => entry?.msg).filter(Boolean),
+      );
+    if (messages.length > 0) return messages.join(" ");
+  }
+  if (data?.message === "otp_storage_failed") {
+    return "Could not store verification code. Check server Redis configuration.";
+  }
+  return null;
+}
+
+function isStrongPassword(password) {
+  return (
+    password.length >= 7 &&
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password) &&
+    /[0-9]/.test(password)
+  );
+}
+
 function Register() {
   const Navigate = useNavigate();
   const [days, setdays] = useState([]);
@@ -252,6 +275,19 @@ function Register() {
       setdate_validation(true);
     } else if (user_values.password !== user_values.confirm_password) {
       setpassword_validation(true);
+    } else if (!isStrongPassword(user_values.password)) {
+      setalert_message(
+        "Password must be at least 7 characters and include uppercase, lowercase, and a number.",
+      );
+      setalert_box(true);
+    } else if (user_values.username.trim().length < 3) {
+      setalert_message("Username must be at least 3 characters.");
+      setalert_box(true);
+    } else if (!/^[a-zA-Z0-9._]+$/.test(user_values.username.trim())) {
+      setalert_message(
+        "Username can only contain letters, numbers, underscores, and dots.",
+      );
+      setalert_box(true);
     } else {
       setdate_validation(false);
       setpassword_validation(false);
@@ -281,10 +317,20 @@ function Register() {
           setalert_message("Please fill in all fields.");
           setalert_box(true);
         } else if (data.status === 400) {
-          setalert_message("Password must be at least 7 characters long.");
+          setalert_message(
+            formatSignupError(data) ||
+              "Password must be at least 7 characters and include uppercase, lowercase, and a number.",
+          );
+          setalert_box(true);
+        } else if (data.status === 500 && data.message === "otp_storage_failed") {
+          setalert_message(
+            "Could not store verification code. Check server Redis configuration.",
+          );
           setalert_box(true);
         } else {
-          setalert_message("Registration failed. Please try again.");
+          setalert_message(
+            formatSignupError(data) || "Registration failed. Please try again.",
+          );
           setalert_box(true);
         }
       } catch {
@@ -431,7 +477,7 @@ function Register() {
                   onChange={handle_user_values}
                   required
                   disabled={submitting || verifying}
-                  placeholder="At least 7 characters"
+                  placeholder="e.g. MyPass123"
                 />
                 <button
                   type="button"
@@ -448,7 +494,7 @@ function Register() {
                 </button>
               </div>
               <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                Minimum 7 characters.
+                At least 7 characters with uppercase, lowercase, and a number.
               </p>
             </div>
 
@@ -532,8 +578,8 @@ function Register() {
                   required
                 >
                   <option value="" disabled>Month</option>
-                  {months.map((m, idx) => (
-                    <option key={`month-${idx + 1}`} value={idx + 1} style={{ background: "#1a1a2e", color: "#f0f0f5" }}>
+                  {months.map((m) => (
+                    <option key={`month-${m}`} value={m} style={{ background: "#1a1a2e", color: "#f0f0f5" }}>
                       {m}
                     </option>
                   ))}

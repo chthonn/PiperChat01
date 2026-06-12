@@ -23,6 +23,11 @@ function normalizeUsername(value) {
     .replace(/\s+/g, " ");
 }
 
+function normalizeBio(value) {
+  if (value === undefined) return undefined;
+  return String(value || "").trim();
+}
+
 async function propagateUserIdentity({ userId, username, profile_pic }) {
   const arrayUpdates = [];
 
@@ -104,10 +109,12 @@ router.patch("/", authToken, updateProfileValidator, validate, async (req, res) 
         : normalizeUsername(req.body.username);
     const requestedProfilePic =
       req.body.profile_pic === undefined ? undefined : req.body.profile_pic;
+    const requestedBio = normalizeBio(req.body.bio);
 
     const $set = {};
     if (requestedUsername !== undefined) $set.username = requestedUsername;
     if (requestedProfilePic !== undefined) $set.profile_pic = requestedProfilePic;
+    if (requestedBio !== undefined) $set.bio = requestedBio;
 
     const updated = await User.findByIdAndUpdate(
       userId,
@@ -137,6 +144,7 @@ router.patch("/", authToken, updateProfileValidator, validate, async (req, res) 
         username: updated.username,
         tag: updated.tag,
         profile_pic: updated.profile_pic,
+        bio: updated.bio ?? "",
       },
     });
   } catch (err) {
