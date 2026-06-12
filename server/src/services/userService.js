@@ -20,7 +20,8 @@ export async function isUsernameAvailable(username) {
 
 export function signup(email, username, password, dob) {
   return (async () => {
-    const data = await User.find({ email }).lean();
+    const normalizedEmail = String(email || "").trim();
+    const data = await User.find({ email: normalizedEmail }).lean();
 
     if (data.length === 0) {
       if (!username || !email || !password || !dob) {

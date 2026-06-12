@@ -39,6 +39,14 @@ function constantTimeStringEqual(a, b) {
   }
 }
 
+function normalizeEmail(value) {
+  return String(value || "").trim();
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
 async function verifyStoredPassword(plainPassword, storedPassword) {
   if (looksLikeBcryptHash(storedPassword)) {
     try {
@@ -67,8 +75,13 @@ router.post("/verify_route", authToken, (req, res) => {
 });
 
 router.post("/signup", expressRateLimit("auth"), async (req, res) => {
-  const { email, username, password, dob } = req.body;
+  const email = normalizeEmail(req.body.email);
+  const { username, password, dob } = req.body;
   const authorized = false;
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ message: "invalid email", status: 400 });
+  }
 
   const response = await signup(email, username, password, dob);
 
@@ -183,8 +196,12 @@ router.post("/signup", expressRateLimit("auth"), async (req, res) => {
 });
 
 router.post("/verify", expressRateLimit("otp"), async (req, res) => {
-  const { email } = req.body;
+  const email = normalizeEmail(req.body.email);
   const otpValue = String(req.body.otp_value || "").trim();
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: "invalid email", status: 400 });
+  }
 
   try {
     const user = await User.findOne({ email }).lean();
@@ -224,7 +241,11 @@ router.post("/verify", expressRateLimit("otp"), async (req, res) => {
 });
 
 router.post("/resend_otp", expressRateLimit("otp"), async (req, res) => {
-  const { email } = req.body;
+  const email = normalizeEmail(req.body.email);
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: "invalid email", status: 400 });
+  }
 
   try {
     const user = await User.findOne({ email }).lean();
@@ -254,11 +275,10 @@ router.post("/resend_otp", expressRateLimit("otp"), async (req, res) => {
 
 router.post("/signin", expressRateLimit("auth"), async (req, res) => {
   try {
-    const email = req.body.email;
+    const email = normalizeEmail(req.body.email);
     const plainPassword = req.body.password;
     if (
-      typeof email !== "string" ||
-      email.length === 0 ||
+      !isValidEmail(email) ||
       typeof plainPassword !== "string" ||
       plainPassword.length === 0
     ) {
