@@ -145,7 +145,7 @@ export default function AuthShell({ children }) {
                   <div className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.85)" }}>
                     {item.label}
                   </div>
-                  <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.65))" }}>
+                  <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.65)" }}>
                     {item.sub}
                   </div>
                 </motion.div>
