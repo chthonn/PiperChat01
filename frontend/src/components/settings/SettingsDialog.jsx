@@ -6,7 +6,7 @@ import { Save, Lock, Bell, User, Image, CheckCircle2, AlertCircle, Loader2, Penc
 
 import { API_BASE_URL } from "../../config";
 import { resolveProfilePic, handleImageError } from "../../shared/imageFallbacks";
-import { change_tag, change_username, option_profile_pic, set_notification_preferences } from "../../store/userCredsSlice";
+import { change_tag, change_username, option_profile_pic, set_bio, set_notification_preferences } from "../../store/userCredsSlice";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -83,6 +83,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("user");
   const [displayName, setDisplayName] = useState(user.username || "");
+  const [bio, setBio] = useState(user.bio || "");
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [saving, setSaving] = useState(false);
@@ -113,6 +114,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
   useEffect(() => {
     if (open && user.username) {
       setDisplayName(user.username);
+      setBio(user.bio || "");
     }
     if (open) {
       setActiveTab("user");
@@ -127,6 +129,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
 
   const reset = () => {
     setDisplayName(user.username || "");
+    setBio(user.bio || "");
     setFile(null);
     setPreviewUrl("");
     setSaving(false);
@@ -181,9 +184,15 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
 
   const saveProfile = async () => {
     const nextName = String(displayName || "").trim().replace(/\s+/g, " ");
+    const nextBio = String(bio || "").trim();
 
     if (nextName.length < 2 || nextName.length > 32) {
       setError("Name must be 2–32 characters.");
+      return;
+    }
+
+    if (nextBio.length > 200) {
+      setError("Bio must be 200 characters or less.");
       return;
     }
 
@@ -212,6 +221,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
         body: JSON.stringify({
           username: nextName,
           profile_pic: finalProfilePic || "",
+          bio: nextBio,
         }),
       });
 
@@ -243,6 +253,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
       dispatch(change_username(decoded.username));
       dispatch(change_tag(decoded.tag));
       dispatch(option_profile_pic(updatedProfilePic));
+      dispatch(set_bio(decoded.bio || ""));
       if (decoded.notification_preferences) {
         dispatch(set_notification_preferences(decoded.notification_preferences));
       }
@@ -421,6 +432,21 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
                         placeholder="Your display name"
                         className="h-9 border-white/5 bg-white/[0.03] text-sm text-white placeholder:text-white/10 focus:border-violet-500/40 focus:bg-white/[0.05]"
                       />
+                      <div className="space-y-2 pt-1">
+                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Bio / About</label>
+                        <textarea
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value)}
+                          maxLength={200}
+                          rows={4}
+                          placeholder="Write a short bio"
+                          className="min-h-[96px] w-full resize-none rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/10 focus:border-violet-500/40 focus:bg-white/[0.05]"
+                        />
+                        <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-white/25">
+                          <span>Visible on your profile</span>
+                          <span>{bio.length}/200</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

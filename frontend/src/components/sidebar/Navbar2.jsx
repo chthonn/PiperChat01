@@ -12,6 +12,7 @@ function Navbar2({ friends, onNavigate }) {
   // user details from redux
   const username = useSelector((state) => state.user_info.username);
   const tag = useSelector((state) => state.user_info.tag);
+  const bio = useSelector((state) => state.user_info.bio);
   const rawProfilePic = useSelector((state) => state.user_info.profile_pic);
   const profile_pic = resolveProfilePic(rawProfilePic, username);
 
@@ -57,6 +58,11 @@ function Navbar2({ friends, onNavigate }) {
             {username}
           </div>
           <div className="text-xs font-semibold text-white/50">#{tag}</div>
+          {bio ? (
+            <div className="mt-1 truncate text-[11px] leading-snug text-white/35">
+              {bio}
+            </div>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           {footerButton("Unmute", MicOff)}

@@ -30,6 +30,16 @@ function isValidProfilePicUrl(value) {
   return false;
 }
 
+function normalizeBio(value) {
+  return String(value || "").trim().replace(/\r\n/g, "\n");
+}
+
+function isValidBio(value) {
+  if (value === undefined) return true;
+  if (typeof value !== "string") return false;
+  return value.length <= 200;
+}
+
 async function propagateUserIdentity({ userId, username, profile_pic }) {
   const arrayUpdates = [];
 
@@ -111,6 +121,8 @@ router.patch("/", authToken, async (req, res) => {
         : normalizeUsername(req.body.username);
     const requestedProfilePic =
       req.body.profile_pic === undefined ? undefined : req.body.profile_pic;
+    const requestedBio =
+      req.body.bio === undefined ? undefined : normalizeBio(req.body.bio);
 
     if (
       requestedUsername !== undefined &&
@@ -132,9 +144,17 @@ router.patch("/", authToken, async (req, res) => {
       });
     }
 
+    if (requestedBio !== undefined && !isValidBio(req.body.bio)) {
+      return res.status(400).json({
+        message: "Bio must be 200 characters or less.",
+        status: 400,
+      });
+    }
+
     const $set = {};
     if (requestedUsername !== undefined) $set.username = requestedUsername;
     if (requestedProfilePic !== undefined) $set.profile_pic = requestedProfilePic;
+    if (requestedBio !== undefined) $set.bio = requestedBio;
 
     if (Object.keys($set).length === 0) {
       return res.status(400).json({ message: "No changes", status: 400 });
@@ -168,6 +188,7 @@ router.patch("/", authToken, async (req, res) => {
         username: updated.username,
         tag: updated.tag,
         profile_pic: updated.profile_pic,
+        bio: updated.bio ?? "",
       },
     });
   } catch (err) {

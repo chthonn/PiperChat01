@@ -11,6 +11,7 @@ import {
   change_username,
   change_tag,
   option_profile_pic,
+  set_bio,
   option_user_id,
   set_notification_preferences,
 } from "../../store/userCredsSlice";
@@ -143,11 +144,12 @@ function Dashboard() {
     if (token) {
       try {
         const user_creds = jwt(token);
-        const { username, tag, profile_pic, id, notification_preferences } = user_creds;
+        const { username, tag, profile_pic, bio, id, notification_preferences } = user_creds;
 
         dispatch(change_username(username));
         dispatch(change_tag(tag));
         dispatch(option_profile_pic(resolveProfilePic(profile_pic, username)));
+        dispatch(set_bio(bio || ""));
         dispatch(option_user_id(id));
 
         dispatch(
