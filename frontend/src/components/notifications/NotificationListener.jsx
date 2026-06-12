@@ -16,6 +16,14 @@ import {
 } from "../../store/presenceSlice";
 import { API_BASE_URL } from "../../config";
 
+function buildJsonAuthHeaders() {
+  const token = localStorage.getItem("token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { "x-auth-token": token } : {}),
+  };
+}
+
 function NotificationListener() {
   const dispatch = useDispatch();
   const location = useLocation();
@@ -61,10 +69,7 @@ function NotificationListener() {
     const fetchUnreadSummary = async () => {
       const res = await fetch(`${url}/notifications/unread_summary`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-auth-token": localStorage.getItem("token"),
-        },
+        headers: buildJsonAuthHeaders(),
       });
       const data = await res.json();
       if (data.status === 200) {
@@ -96,10 +101,7 @@ function NotificationListener() {
     if (reEnabled) {
       const res = fetch(`${url}/notifications/unread_summary`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-auth-token": localStorage.getItem("token"),
-        },
+        headers: buildJsonAuthHeaders(),
       }).then((r) => r.json());
       res.then((data) => {
         if (data.status === 200) {
@@ -124,10 +126,7 @@ function NotificationListener() {
         dispatch(clear_dm_unread({ friend_id }));
         fetch(`${url}/notifications/mark_direct_messages_read`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-auth-token": localStorage.getItem("token"),
-          },
+          headers: buildJsonAuthHeaders(),
           body: JSON.stringify({ friend_id }),
         });
         return;
@@ -147,10 +146,7 @@ function NotificationListener() {
         dispatch(clear_channel_unread({ server_id, channel_id }));
         fetch(`${url}/notifications/mark_channel_read`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-auth-token": localStorage.getItem("token"),
-          },
+          headers: buildJsonAuthHeaders(),
           body: JSON.stringify({ server_id, channel_id }),
         });
         return;
