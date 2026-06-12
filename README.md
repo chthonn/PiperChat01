@@ -192,6 +192,10 @@ All backend APIs are mounted under:
 - `npm run build` → production build
 - `npm run lint` → ESLint
 
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. It includes the PR template, commit message format, and the local validation checks we expect contributors to run before review.
+
 ## Logging
 
 The backend uses Winston for structured logging.
