@@ -7,8 +7,13 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+
+    "test": "vitest run",
+    "test:watch": "vitest",
+
     "test:auth:unit": "node scripts/run-auth-jwt-unit.mjs",
     "test:auth": "node scripts/run-auth-integration.mjs",
+
     "gmail:oauth-setup": "node scripts/gmail-oauth-setup.mjs"
   },
   "author": "shunnu",
@@ -37,6 +42,8 @@
     "winston": "^3.19.0"
   },
   "devDependencies": {
-    "mongodb-memory-server": "^11.1.0"
+    "mongodb-memory-server": "^11.1.0",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.7"
   }
 }
