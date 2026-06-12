@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import { buildAuthUserJwtPayload } from "../lib/authJwtPayload.js";
 import { authToken } from "../middleware/auth.js";
 import User from "../models/User.js";
+import { getIO } from "../socket/runtime.js";
 
 const router = express.Router();
 
@@ -153,6 +154,18 @@ router.patch("/", authToken, async (req, res) => {
       username: $set.username,
       profile_pic: $set.profile_pic,
     });
+
+    const io = getIO();
+    if (io && Array.isArray(updated.servers)) {
+      for (const server of updated.servers) {
+        if (!server?.server_id) continue;
+        io.to(`server:${String(server.server_id)}`).emit("server_updated", {
+          server_id: String(server.server_id),
+          reason: "member_profile_updated",
+          user_id: String(userId),
+        });
+      }
+    }
 
     const token = jwt.sign(
       buildAuthUserJwtPayload(updated),
