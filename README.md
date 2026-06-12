@@ -12,7 +12,9 @@
 </p>
 
 <p align="center">
-  <a href="https://piperchat.vercel.app/invite/6vP5jcYkK"><strong>Join our PiperChat Community Server</strong></a> • Created by Owner
+  <!-- Replaced the generic "Owner" label with the actual project maintainer's
+  name or GitHub username to improve clarity and contributor onboarding. -->
+  <a href="https://piperchat.vercel.app/invite/6vP5jcYkK"><strong>Join our PiperChat Community Server</strong></a> • Created by <maintainer-name>
 </p>
 
 <p align="center">
