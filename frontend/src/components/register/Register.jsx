@@ -171,6 +171,64 @@ function AlertBanner({ message, onClose }) {
   );
 }
 
+function PasswordChecklist({ password }) {
+  if (!password) return null;
+
+  const checks = [
+    { label: "At least 7 characters", valid: password.length >= 7 },
+    { label: "One uppercase letter", valid: /[A-Z]/.test(password) },
+    { label: "One number", valid: /[0-9]/.test(password) },
+    { label: "One special character", valid: /[^A-Za-z0-9]/.test(password) },
+  ];
+
+  const score = checks.filter((c) => c.valid).length;
+  const strengthLabels = ["Weak", "Weak", "Fair", "Strong", "Very strong"];
+  const strengthColors = ["#ef4444", "#ef4444", "#f59e0b", "#22c55e", "#16a34a"];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      className="mt-2 rounded-xl p-2.5 space-y-1.5"
+      style={{
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.08)",
+      }}
+    >
+      <div className="grid grid-cols-2 gap-1">
+        {checks.map((c, idx) => (
+          <div
+            key={idx}
+            className="flex items-center gap-1.5 text-[10px]"
+            style={{ color: c.valid ? "#4ade80" : "rgba(255,255,255,0.4)" }}>
+            <span>{c.valid ? "✓" : "○"}</span>
+            <span>{c.label}</span>
+          </div>
+        ))}
+      </div>
+      <div>
+        <div
+          className="h-1 rounded-full overflow-hidden"
+          style={{ background: "rgba(255,255,255,0.08)" }}
+        >
+          <motion.div
+            className="h-full rounded-full"
+            animate={{
+              width: `${(score / 4) * 100}%`,
+              backgroundColor: strengthColors[score],
+            }}
+            transition={{ duration: 0.3 }}
+          />
+        </div>
+        <p className="text-[10px] mt-1" style={{ color: strengthColors[score] }}>
+          {strengthLabels[score]}
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
 function Register() {
   const Navigate = useNavigate();
   const [days, setdays] = useState([]);
@@ -447,9 +505,19 @@ function Register() {
                   )}
                 </button>
               </div>
-              <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                Minimum 7 characters.
-              </p>
+              <AnimatePresence mode="wait">
+                {user_values.password.length > 0 ? (
+                  <PasswordChecklist password={user_values.password} />
+                ) : (
+                  <motion.p
+                    key="hint"
+                    className="mt-1 text-[11px]"
+                    style={{ color: "rgba(255,255,255,0.3)" }}
+                  >
+                    Minimum 7 characters.
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
 
             <div>
