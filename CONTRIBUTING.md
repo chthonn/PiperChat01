@@ -67,6 +67,21 @@ Preferred types are:
 
 Keep commit messages short and specific. Avoid vague messages like `updates`, `changes`, or `fix stuff`.
 
+## Local Environment Setup
+
+PiperChat has separate frontend and backend environment files. Before running the app locally:
+
+1. Copy `server/.env.example` to `server/.env`.
+2. Copy `frontend/.env.example` to `frontend/.env`.
+3. Fill in the required values for `MONGO_URI`, `ACCESS_TOKEN`, `VITE_URL`, and `VITE_FRONT_END_URL`.
+
+Optional services:
+
+- **Email OTP**: set `MAIL_TRANSPORT`, `MAIL_USER`, and `MAIL_PASS` if you want real email delivery. For Gmail, use an App Password rather than your regular login password.
+- **Avatar uploads**: set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_SUPABASE_BUCKET` if you want profile image uploads to work. The app still runs without Supabase, but avatar uploads will be disabled.
+
+If these values are missing, you may see login, verification, or profile-image behavior fail locally even when the UI loads correctly.
+
 ## Test Expectations
 
 Before requesting review, run the checks that apply to your change.
