@@ -1,5 +1,5 @@
 import discord_logo from "../../images/discord_logo_3.png";
-import { ChevronRight, Plus, ArrowLeft, Loader2 } from "lucide-react";
+import { ChevronRight, Compass, Plus, ArrowLeft, Loader2 } from "lucide-react";
 import server_img_1 from "../../images/new_server.svg";
 import server_img_2 from "../../images/server_image_2.svg";
 import server_img_3 from "../../images/server_image_3.svg";
@@ -151,6 +151,20 @@ function Navbar({ new_req_recieved, user_cred, onNavigate }) {
             {dmUnreadTotal}
           </span>
         ) : null}
+      </Link>
+
+      <Link
+        to="/channels/explore"
+        onClick={() => onNavigate?.()}
+        className={[
+          "group relative grid h-12 w-12 place-items-center overflow-visible rounded-2xl border transition-all duration-200",
+          activeServerId === "explore"
+            ? "border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan drop-shadow-md"
+            : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-neon-cyan",
+        ].join(" ")}
+        title="Explore Servers"
+      >
+        <Compass className="h-6 w-6" />
       </Link>
 
       <div className="h-px w-10 bg-white/10" />

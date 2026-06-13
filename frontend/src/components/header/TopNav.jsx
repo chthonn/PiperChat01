@@ -7,7 +7,7 @@ function TopNav({ button_status, onToggleSidebar }) {
 
   return (
     <div className="h-full">
-      {server_id == "@me" ? (
+      {server_id == "@me" || server_id === "explore" ? (
         <TopnavDashboard
           button_status={button_status}
           onToggleSidebar={onToggleSidebar}
