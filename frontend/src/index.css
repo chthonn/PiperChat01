@@ -66,3 +66,51 @@
     transform: translateY(-6px);
   }
 }
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.forestDark {
+  --bg-primary: #3f5a46;
+  --text-primary: white;
+}
+
+.peachDark {
+  --bg-primary: #7a4b42;
+  --text-primary: white;
+}
+
+.slateBlue {
+  --bg-primary: #4f5d7a;
+  --text-primary: white;
+}
+
+.oliveDark {
+  --bg-primary: #5c6650;
+  --text-primary: white;
+}
+
+.redDark {
+  --bg-primary: #250000;
+  --text-primary: white;
+}
+
+.purpleDark {
+  --bg-primary: #120a2c;
+  --text-primary: white;
+}
+
+.brownDark {
+  --bg-primary: #6d4037;
+  --text-primary: white;
+}
+
+.greyBlue {
+  --bg-primary: #66708f;
+  --text-primary: white;
+}

@@ -17,6 +17,9 @@ import { getIO } from "../socket/runtime.js";
 
 import expressRateLimit from "../middleware/rateLimit.js";
 
+import { deleteServerMessageValidator, editServerMessageValidator, getMessagesValidator, storeMessageValidator } from "../validators/chat.js";
+import validate from "../middleware/validate.js";
+
 const router = express.Router();
 
 async function shouldSendNotification(userId, preferenceKey) {
@@ -54,7 +57,7 @@ function findChatMessage(channel, timestamp, senderId) {
   );
 }
 
-router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
+router.post("/store_message", expressRateLimit("chat"), storeMessageValidator, validate, async (req, res) => {
   const {
     message,
     server_id,
@@ -179,14 +182,8 @@ router.post("/store_message", expressRateLimit("chat"), async (req, res) => {
   }
 });
 
-router.post("/get_messages", async (req, res) => {
+router.post("/get_messages", getMessagesValidator, validate, async (req, res) => {
   const { channel_id, server_id } = req.body;
-
-  if (!channel_id || !server_id) {
-    return res
-      .status(400)
-      .json({ error: "Invalid request. Missing channel_id or server_id." });
-  }
 
   try {
     const cacheKey = `chat:${server_id}:${channel_id}`;
@@ -214,7 +211,7 @@ router.post("/get_messages", async (req, res) => {
   }
 });
 
-router.post("/edit_server_message", async (req, res) => {
+router.post("/edit_server_message", editServerMessageValidator, validate, async (req, res) => {
   const { server_id, channel_id, timestamp, content } = req.body;
   const user = getAuthorizedUser(req, res);
   if (!user) {
@@ -229,6 +226,7 @@ router.post("/edit_server_message", async (req, res) => {
       message: contentValidation.message || "Invalid input",
     });
   }
+
 
   try {
     const chatDoc = await Chat.findOne({
@@ -346,17 +344,13 @@ router.post("/toggle_server_message_pin", async (req, res) => {
   }
 });
 
-router.post("/delete_server_message", async (req, res) => {
+router.post("/delete_server_message", deleteServerMessageValidator, validate, async (req, res) => {
   const { server_id, channel_id, timestamp } = req.body;
   const user = getAuthorizedUser(req, res);
   if (!user) {
     return;
   }
   const senderId = user.id;
-
-  if (!server_id || !channel_id || !timestamp) {
-    return res.status(400).json({ status: 400, message: "Invalid input" });
-  }
 
   try {
     const chatDoc = await Chat.findOne({

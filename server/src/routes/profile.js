@@ -8,26 +8,19 @@ import { buildAuthUserJwtPayload } from "../lib/authJwtPayload.js";
 import { authToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 
+import {
+  updateNotificationPreferencesValidator,
+  updatePasswordValidator,
+  updateProfileValidator,
+} from "../validators/profile.js";
+import validate from "../middleware/validate.js";
+
 const router = express.Router();
 
 function normalizeUsername(value) {
   return String(value || "")
     .trim()
     .replace(/\s+/g, " ");
-}
-
-function isValidUsername(value) {
-  if (!value) return false;
-  if (value.length < 2 || value.length > 32) return false;
-  return true;
-}
-
-function isValidProfilePicUrl(value) {
-  if (!value) return true;
-  if (typeof value !== "string") return false;
-  if (value.length > 2048) return false;
-  if (value.startsWith("http://") || value.startsWith("https://")) return true;
-  return false;
 }
 
 async function propagateUserIdentity({ userId, username, profile_pic }) {
@@ -98,7 +91,7 @@ async function propagateUserIdentity({ userId, username, profile_pic }) {
   await Promise.all(arrayUpdates);
 }
 
-router.patch("/", authToken, async (req, res) => {
+router.patch("/", authToken, updateProfileValidator, validate, async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -112,33 +105,9 @@ router.patch("/", authToken, async (req, res) => {
     const requestedProfilePic =
       req.body.profile_pic === undefined ? undefined : req.body.profile_pic;
 
-    if (
-      requestedUsername !== undefined &&
-      !isValidUsername(requestedUsername)
-    ) {
-      return res.status(400).json({
-        message: "Username must be 2–32 characters.",
-        status: 400,
-      });
-    }
-
-    if (
-      requestedProfilePic !== undefined &&
-      !isValidProfilePicUrl(requestedProfilePic)
-    ) {
-      return res.status(400).json({
-        message: "Profile picture must be a valid https URL (or empty).",
-        status: 400,
-      });
-    }
-
     const $set = {};
     if (requestedUsername !== undefined) $set.username = requestedUsername;
     if (requestedProfilePic !== undefined) $set.profile_pic = requestedProfilePic;
-
-    if (Object.keys($set).length === 0) {
-      return res.status(400).json({ message: "No changes", status: 400 });
-    }
 
     const updated = await User.findByIdAndUpdate(
       userId,
@@ -175,7 +144,7 @@ router.patch("/", authToken, async (req, res) => {
   }
 });
 
-router.patch("/password", authToken, async (req, res) => {
+router.patch("/password", authToken, updatePasswordValidator, validate, async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -183,20 +152,6 @@ router.patch("/password", authToken, async (req, res) => {
     }
 
     const { current_password, new_password } = req.body;
-
-    if (!current_password || !new_password) {
-      return res.status(400).json({
-        message: "Current password and new password are required.",
-        status: 400,
-      });
-    }
-
-    if (typeof new_password !== "string" || new_password.length < 6) {
-      return res.status(400).json({
-        message: "New password must be at least 6 characters.",
-        status: 400,
-      });
-    }
 
     const user = await User.findById(userId);
     if (!user) {
@@ -223,7 +178,7 @@ router.patch("/password", authToken, async (req, res) => {
   }
 });
 
-router.patch("/notifications", authToken, async (req, res) => {
+router.patch("/notifications", authToken, updateNotificationPreferencesValidator, validate, async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -237,10 +192,6 @@ router.patch("/notifications", authToken, async (req, res) => {
     if (friend_requests !== undefined) $set["notification_preferences.friend_requests"] = Boolean(friend_requests);
     if (server_messages !== undefined) $set["notification_preferences.server_messages"] = Boolean(server_messages);
     if (server_invites !== undefined) $set["notification_preferences.server_invites"] = Boolean(server_invites);
-
-    if (Object.keys($set).length === 0) {
-      return res.status(400).json({ message: "No preferences provided", status: 400 });
-    }
 
     const updated = await User.findByIdAndUpdate(
       userId,

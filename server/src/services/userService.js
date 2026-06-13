@@ -1,7 +1,6 @@
-import config from "../config/index.js";
-
 import User from "../models/User.js";
 import { sendMail } from "./email.js";
+import { storeOtp } from "./otpService.js";
 
 export async function isUsernameAvailable(username) {
   const latestTaggedUser = await User.findOne({
@@ -36,24 +35,29 @@ export function signup(email, username, password, dob) {
       return { message: "user already exists", status: 202 };
     }
 
-    const currentTimestamp = data[0].verification?.[0]?.timestamp ?? 0;
-    const currentOtp = data[0].verification?.[0]?.code;
+    if (data[0].username === username) {
+      return {
+        message: "existing_unverified_same_username",
+        tag: data[0].tag,
+      };
+    }
 
-    if (data[0].username !== username && Date.now() - currentTimestamp < config.OTP_TTL_MS) {
-      return { message: "not_TLE", otp: currentOtp };
-    }
-    if (data[0].username === username && Date.now() - currentTimestamp < config.OTP_TTL_MS) {
-      return { message: "not_TLE_2", otp: currentOtp, tag: data[0].tag };
-    }
-    if (data[0].username === username && Date.now() - currentTimestamp > config.OTP_TTL_MS) {
-      return { message: "TLE", tag: data[0].tag };
-    }
-    return { message: "TLE_2" };
+    return { message: "existing_unverified_different_username" };
   })();
 }
 
 export async function updatingCreds(accountCreds, otp, email, username) {
   await User.updateOne({ email }, accountCreds);
+
+  const otpStored = await storeOtp(email, otp);
+  if (!otpStored) {
+    return {
+      message: "otp_storage_failed",
+      status: 500,
+      mailResult: { ok: false },
+    };
+  }
+
   const mailResult = await sendMail(otp, email, username);
   return { message: "updated", status: 201, mailResult };
 }

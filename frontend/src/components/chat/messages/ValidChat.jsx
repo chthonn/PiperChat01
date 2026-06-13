@@ -36,6 +36,7 @@ function ValidChat() {
   const [messageError, setMessageError] = useState("");
   const [editingError, setEditingError] = useState("");
   const [typingUsers, setTypingUsers] = useState({});
+  const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const typingUserTimeoutsRef = useRef({});
   const isTypingRef = useRef(false);
@@ -151,6 +152,10 @@ function ValidChat() {
     };
     // eslint-disable-next-line
   }, [channel_id]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView();
+  }, [all_messages]);
 
   const get_messages = async () => {
     try {
@@ -404,7 +409,7 @@ function ValidChat() {
 
   return (
     <div className="flex h-full min-w-0 flex-col">
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-6">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-brand-300" />
@@ -575,6 +580,7 @@ function ValidChat() {
             );
           })}
         </div>
+        <div ref={messagesEndRef} />
         </>
         )}
       </div>

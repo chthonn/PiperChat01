@@ -10,6 +10,14 @@ import { validateMessageContent } from "../lib/validation.js";
 import { incrementDmUnread } from "../services/unreadService.js";
 import { getIO } from "../socket/runtime.js";
 
+import {
+  getDirectMessagesValidator,
+  sendDirectMessageValidator,
+  editDirectMessageValidator,
+  deleteDirectMessageValidator,
+} from "../validators/directMessages.js";
+import validate from "../middleware/validate.js";
+
 const router = express.Router();
 
 async function shouldSendNotification(userId, preferenceKey) {
@@ -36,17 +44,13 @@ function getThreadParticipants(userId, friendId) {
   return [userId, friendId].sort();
 }
 
-router.post("/get_direct_messages", async (req, res) => {
+router.post("/get_direct_messages", getDirectMessagesValidator, validate, async (req, res) => {
   const user = getAuthorizedUser(req, res);
   if (!user) {
     return;
   }
 
   const { friend_id } = req.body;
-
-  if (!friend_id) {
-    return res.status(400).json({ message: "friend_id is required", status: 400 });
-  }
 
   const participants = getThreadParticipants(user.id, friend_id);
   const cacheKey = `dm:${participants[0]}:${participants[1]}`;
@@ -68,7 +72,7 @@ router.post("/get_direct_messages", async (req, res) => {
   });
 });
 
-router.post("/send_direct_message", async (req, res) => {
+router.post("/send_direct_message", sendDirectMessageValidator, validate, async (req, res) => {
   const user = getAuthorizedUser(req, res);
   if (!user) {
     return;
@@ -83,6 +87,7 @@ router.post("/send_direct_message", async (req, res) => {
       status: 400,
     });
   }
+
 
   const currentUser = await User.findOne({ _id: user.id }).lean();
   const friend = await User.findOne({ _id: friend_id }).lean();
@@ -157,7 +162,7 @@ router.post("/send_direct_message", async (req, res) => {
   });
 });
 
-router.post("/edit_direct_message", async (req, res) => {
+router.post("/edit_direct_message", editDirectMessageValidator, validate, async (req, res) => {
   const user = getAuthorizedUser(req, res);
   if (!user) {
     return;
@@ -210,16 +215,13 @@ router.post("/edit_direct_message", async (req, res) => {
   return res.status(200).json({ status: 200, message: "Message updated" });
 });
 
-router.post("/delete_direct_message", async (req, res) => {
+router.post("/delete_direct_message", deleteDirectMessageValidator, validate, async (req, res) => {
   const user = getAuthorizedUser(req, res);
   if (!user) {
     return;
   }
 
   const { friend_id, timestamp } = req.body;
-  if (!friend_id || !timestamp) {
-    return res.status(400).json({ status: 400, message: "Invalid input" });
-  }
 
   const participants = getThreadParticipants(user.id, friend_id);
   const thread = await DirectMessageThread.findOne({ participants });

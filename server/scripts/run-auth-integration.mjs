@@ -36,6 +36,8 @@ config.MAIL_TRANSPORT = "console";
 
 const { connectDatabase } = await import("../src/config/db.js");
 const User = (await import("../src/models/User.js")).default;
+const { getStoredOtp } = await import("../src/services/otpService.js");
+const { closeRedis } = await import("../src/lib/cache.js");
 const authRoutes = (await import("../src/routes/auth.js")).default;
 const profileRoutes = (await import("../src/routes/profile.js")).default;
 
@@ -89,7 +91,6 @@ async function main() {
     dob: "01/01/1990",
     profile_pic: "https://example.com/legacy.png",
     authorized: true,
-    verification: [{ timestamp: Date.now(), code: "0000" }],
   });
 
   const app = express();
@@ -194,7 +195,7 @@ async function main() {
     assert(BCRYPT_RE.test(row.password), "signup should store bcrypt hash");
     assert(row.authorized === false, "new user should be unauthorized until verify");
 
-    const otp = row.verification?.[0]?.code;
+    const otp = await getStoredOtp(emailNew);
     assert(otp && otp.length === 4, "otp missing");
 
     r = await request(baseUrl, "/verify", {
@@ -235,7 +236,6 @@ async function main() {
       dob: "01/01/2002",
       profile_pic: "",
       authorized: false,
-      verification: [{ timestamp: Date.now(), code: "1234" }],
     });
     r = await request(baseUrl, "/signin", {
       method: "POST",
@@ -251,6 +251,7 @@ async function main() {
   } finally {
     server.close();
     await mongoose.disconnect();
+    await closeRedis();
   }
 }
 
