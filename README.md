@@ -240,3 +240,10 @@ npm run test:auth:unit
 - Use a production MongoDB connection string
 - Configure Logtail variables if production logging is needed
 - Prefer `MAIL_TRANSPORT=gmail_api` for production deployments
+
+---
+## 👥 Contributors
+
+Thanks to all contributors ❤️
+
+[![Contributors](https://contrib.rocks/image?repo=chthonn/PiperChat01)](https://github.com/chthonn/PiperChat01/graphs/contributors)
