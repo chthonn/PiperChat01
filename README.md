@@ -23,6 +23,17 @@
   <img alt="Socket.IO" src="https://img.shields.io/badge/Socket.IO--010101?logo=socket.io&logoColor=white">
 </p>
 
+## Table of Contents
+- [What is this?](#what-is-this)
+- [Project structure](#project-structure)
+- [System Architecture](#system-architecture)
+- [Quick start](#quick-start)
+- [Environment variables](#environment-variables)
+- [API Routes](#api-routes)
+- [Scripts](#scripts)
+- [Deployment notes](#deployment-notes)
+- [ Contributors](#-contributors)
+
 ## What is this?
 
 PiperChat is a Discord-style chat app with:
