@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect, useRef } from 'react';
 import friends_icon from "../../../images/friends.svg";
 import {
   Inbox,
@@ -30,6 +30,19 @@ function TopnavDashboard({button_status, onToggleSidebar}) {
     const active = useSelector((state) => state.selected_option.value);
     const { setTheme } = useTheme();
     const [showThemes, setShowThemes] = useState(false);
+    const themesRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (showThemes && themesRef.current && !themesRef.current.contains(event.target)) {
+        setShowThemes(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showThemes]);
 
   function change_option_value(option_number,option_name,status,text){
     dispatch(close_direct_message())
@@ -174,7 +187,7 @@ function TopnavDashboard({button_status, onToggleSidebar}) {
 
       <div className="flex items-center gap-2">
 
-  <div className="relative">
+  <div ref={themesRef} className="relative">
     <button
       type="button"
       onClick={() => setShowThemes(!showThemes)}
