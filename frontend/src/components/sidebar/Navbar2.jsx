@@ -31,7 +31,7 @@ function Navbar2({ friends, onNavigate }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-hidden">
-        {server_id == "@me" || server_id == undefined ? (
+        {server_id == "@me" || server_id == undefined || server_id === "explore" ? (
           <Navbar2Dashboard
             friends={friends}
             onNavigate={onNavigate}

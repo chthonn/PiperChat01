@@ -25,6 +25,7 @@ import {
   addNewChannelValidator,
   createServerValidator,
   deleteServerValidator,
+  joinServerValidator,
   leaveServerValidator,
   serverInfoValidator,
 } from "../validators/servers.js";
@@ -307,6 +308,141 @@ router.post("/leave_server", leaveServerValidator, validate, async (req, res) =>
       return res.json({ status: 200 });
     }
     return res.status(500).json({ status: 500, message: "Update failed" });
+  } catch (err) {
+    return res.status(500).json({ status: 500, message: "Server error" });
+  }
+});
+
+router.get("/explore", async (req, res) => {
+  let user_id;
+  try {
+    user_id = jwt.verify(
+      req.headers["x-auth-token"],
+      config.ACCESS_TOKEN
+    );
+  } catch (e) {
+    return res.status(401).json({ message: "Unauthorized", status: 401 });
+  }
+
+  try {
+    // Get server IDs the user already belongs to
+    const user = await User.findById(user_id.id).lean();
+    const joinedServerIds = (user?.servers || []).map((s) => s.server_id);
+
+    // Build query: active servers, not yet joined
+    const query = { active: { $ne: false } };
+    if (joinedServerIds.length > 0) {
+      query._id = {
+        $nin: joinedServerIds
+          .filter((id) => mongoose.isValidObjectId(id))
+          .map((id) => new mongoose.Types.ObjectId(id)),
+      };
+    }
+
+    // Optional name search
+    const search = req.query.search;
+    if (search && typeof search === "string" && search.trim()) {
+      query.server_name = { $regex: search.trim(), $options: "i" };
+    }
+
+    const servers = await Server.find(query)
+      .select("server_name server_pic users categories")
+      .lean();
+
+    // Return lightweight payload (counts instead of full arrays)
+    const result = servers.map((s) => ({
+      _id: s._id,
+      server_name: s.server_name,
+      server_pic: s.server_pic || "",
+      member_count: Array.isArray(s.users) ? s.users.length : 0,
+      channel_count: Array.isArray(s.categories)
+        ? s.categories.reduce(
+            (sum, cat) =>
+              sum + (Array.isArray(cat.channels) ? cat.channels.length : 0),
+            0
+          )
+        : 0,
+    }));
+
+    return res.json({ status: 200, servers: result });
+  } catch (err) {
+    return res.status(500).json({ status: 500, message: "Server error" });
+  }
+});
+
+router.post("/join_server", joinServerValidator, validate, async (req, res) => {
+  const { server_id } = req.body;
+  let user_id;
+  try {
+    user_id = jwt.verify(
+      req.headers["x-auth-token"],
+      config.ACCESS_TOKEN
+    );
+  } catch (e) {
+    return res.status(401).json({ message: "Unauthorized", status: 401 });
+  }
+
+  if (!server_id || !mongoose.isValidObjectId(server_id)) {
+    return res.status(400).json({ status: 400, message: "Invalid server ID" });
+  }
+
+  try {
+    // Check server exists and is active
+    const server = await Server.findById(server_id).lean();
+    if (!server || server.active === false) {
+      return res.status(404).json({ status: 404, message: "Server not found" });
+    }
+
+    // Check user not already in this server
+    const alreadyJoined = await checkServerInUser(user_id.id, server_id);
+    if (
+      alreadyJoined[0] &&
+      alreadyJoined[0].servers &&
+      alreadyJoined[0].servers.length > 0
+    ) {
+      return res.json({ status: 403, message: "Already a member" });
+    }
+
+    // Get user info
+    const user = await User.findById(user_id.id).lean();
+    if (!user) {
+      return res.status(404).json({ status: 404, message: "User not found" });
+    }
+
+    const userDetails = {
+      id: user_id.id,
+      username: user.username,
+      tag: user.tag,
+      profile_pic: user.profile_pic || "",
+    };
+
+    // Add user to server
+    const added = await addUserToServer(userDetails, server_id);
+    if (!added) {
+      return res.status(500).json({ status: 500, message: "Failed to join" });
+    }
+
+    // Add server to user
+    await addServerToUser(user_id.id, {
+      server_name: server.server_name,
+      server_pic: server.server_pic || "",
+      server_id: String(server._id),
+    }, "member");
+
+    // Emit real-time events
+    const io = getIO();
+    if (io) {
+      io.to(String(user_id.id)).emit("user_servers_updated", {
+        user_id: String(user_id.id),
+      });
+      io.to(`server:${String(server_id)}`).emit("server_updated", {
+        server_id: String(server_id),
+        reason: "member_joined",
+        user_id: String(user_id.id),
+      });
+    }
+
+    return res.json({ status: 200, message: "Joined server" });
   } catch (err) {
     return res.status(500).json({ status: 500, message: "Server error" });
   }

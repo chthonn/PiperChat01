@@ -60,3 +60,7 @@ export const deleteServerValidator = [
 export const leaveServerValidator = [
   serverIdValidator(),
 ];
+
+export const joinServerValidator = [
+  serverIdValidator(),
+];

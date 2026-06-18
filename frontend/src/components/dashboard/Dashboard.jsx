@@ -4,6 +4,7 @@ import Navbar2 from "../sidebar/Navbar2";
 import TopNav from "../header/TopNav";
 import Main from "../main/Main";
 import RightNav from "../membersPanel/RightNav";
+import ExploreServers from "../explore/ExploreServers";
 import jwt from "jwt-decode";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -23,6 +24,7 @@ function Dashboard() {
   const dispatch = useDispatch();
   const { server_id } = useParams();
   const isDashboard = server_id === "@me" || server_id === undefined;
+  const isExplore = server_id === "explore";
 
   // Select user info from Redux for real-time reactivity
   const {
@@ -126,7 +128,7 @@ function Dashboard() {
   }, [server_id]);
 
   useEffect(() => {
-    if (server_id !== "@me" && server_id !== undefined) {
+    if (server_id !== "@me" && server_id !== "explore" && server_id !== undefined) {
       let does_exists = false;
       for (let index = 0; index < user_data.servers.length; index++) {
         if (server_id === user_data.servers[index].server_id) {
@@ -182,10 +184,10 @@ function Dashboard() {
           "grid-rows-[56px_1fr]",
           "grid-cols-1",
           "lg:grid-cols-[72px_minmax(240px,280px)_minmax(0,1fr)]",
-          !isDashboard
+          !isDashboard && !isExplore
             ? "xl:grid-cols-[72px_minmax(260px,300px)_minmax(0,1fr)_minmax(320px,340px)]"
             : "xl:grid-cols-[72px_minmax(260px,300px)_minmax(0,1fr)]",
-          !isDashboard
+          !isDashboard && !isExplore
             ? "2xl:grid-cols-[72px_minmax(280px,320px)_minmax(0,1fr)_minmax(340px,380px)]"
             : "2xl:grid-cols-[72px_minmax(280px,320px)_minmax(0,1fr)]",
         ].join(" ")}
@@ -222,20 +224,26 @@ function Dashboard() {
           />
         </div>
 
-        {!isDashboard ? (
+        {!isDashboard && !isExplore ? (
           <div className="hidden xl:block xl:col-start-4 xl:row-start-1 xl:row-span-2">
             <RightNav />
           </div>
         ) : null}
 
         <div className="col-start-1 row-start-2 min-w-0 overflow-hidden lg:col-start-3 lg:col-span-1 lg:row-start-2">
-          <Main
-            user_relations={{
-              incoming_reqs: user_data.incoming_reqs,
-              outgoing_reqs: user_data.outgoing_reqs,
-              friends: user_data.friends,
-            }}
-          />
+          {isExplore ? (
+            <ExploreServers
+              onJoinSuccess={() => setnew_req((c) => c + 1)}
+            />
+          ) : (
+            <Main
+              user_relations={{
+                incoming_reqs: user_data.incoming_reqs,
+                outgoing_reqs: user_data.outgoing_reqs,
+                friends: user_data.friends,
+              }}
+            />
+          )}
         </div>
 
         {/* Mobile nav drawer (servers + sidebar) */}
