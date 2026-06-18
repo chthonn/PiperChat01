@@ -25,7 +25,7 @@ export function signup(email, username, password, dob) {
       if (!username || !email || !password || !dob) {
         return { message: "wrong input", status: 204 };
       }
-      if (password.length < 7) {
+      if (password.length < 8) {
         return { message: "password length", status: 400 };
       }
       return { message: true };

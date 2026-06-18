@@ -4,6 +4,7 @@ import AuthShell from "../auth/AuthShell";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import { API_BASE_URL } from "../../config";
+import PasswordStrengthGuide, { PASSWORD_MIN_LENGTH } from "../auth/PasswordStrengthGuide";
 import {
   Dialog,
   DialogContent,
@@ -281,7 +282,9 @@ function Register() {
           setalert_message("Please fill in all fields.");
           setalert_box(true);
         } else if (data.status === 400) {
-          setalert_message("Password must be at least 7 characters long.");
+          setalert_message(
+            `Password must be at least ${PASSWORD_MIN_LENGTH} characters long.`
+          );
           setalert_box(true);
         } else {
           setalert_message("Registration failed. Please try again.");
@@ -431,7 +434,7 @@ function Register() {
                   onChange={handle_user_values}
                   required
                   disabled={submitting || verifying}
-                  placeholder="At least 7 characters"
+                  placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
                 />
                 <button
                   type="button"
@@ -447,9 +450,7 @@ function Register() {
                   )}
                 </button>
               </div>
-              <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                Minimum 7 characters.
-              </p>
+              <PasswordStrengthGuide password={user_values.password} />
             </div>
 
             <div>
