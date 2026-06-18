@@ -181,6 +181,7 @@ function Register() {
   const [alert_message, setalert_message] = useState("");
   const [otp_alert_box, setotp_alert_box] = useState(false);
   const [otp_alert_message, setotp_alert_message] = useState("");
+  const [verificationEmailSent, setVerificationEmailSent] = useState(false);
   const [date_validation, setdate_validation] = useState(false);
   const [password_validation, setpassword_validation] = useState(false);
   const [user_values, setuser_values] = useState({
@@ -266,7 +267,9 @@ function Register() {
         });
         const data = await res.json();
         if (data.status === 201) {
-          if (data.email_sent === false) {
+          const emailSent = data.email_sent !== false;
+          setVerificationEmailSent(emailSent);
+          if (!emailSent) {
             setotp_alert_message(
               "We couldn't send the verification email. Click Resend."
             );
@@ -345,6 +348,7 @@ function Register() {
       });
       const data = await res.json();
       if (data.status === 201) {
+        setVerificationEmailSent(data.email_sent !== false);
         setotp_alert_message(
           data.email_sent === false
             ? "Couldn't send email. Please try again."
@@ -616,6 +620,7 @@ function Register() {
             setotp_value("");
             setotp_alert_box(false);
             setotp_alert_message("");
+            setVerificationEmailSent(false);
           }
         }}
       >
@@ -650,10 +655,19 @@ function Register() {
             className="text-center text-sm mt-1"
             style={{ color: "rgba(255,255,255,0.45)" }}
           >
-            We sent a verification code to{" "}
-            <span className="font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>
-              {user_values.email}
-            </span>
+            {verificationEmailSent ? (
+              <>
+                We sent a verification code to{" "}
+                <span className="font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>
+                  {user_values.email}
+                </span>
+              </>
+            ) : (
+              <>
+                We couldn't send the verification email yet. Click Resend to try
+                again.
+              </>
+            )}
           </DialogDescription>
           {otp_alert_box && (
             <div className="mt-4">
@@ -671,7 +685,7 @@ function Register() {
                 onChange={handle_otp}
                 inputMode="numeric"
                 autoFocus
-                disabled={verifying}
+                disabled={verifying || !verificationEmailSent}
                 placeholder="Enter code"
                 style={{ textAlign: "center", letterSpacing: "0.3em", fontSize: "1.1rem" }}
               />
@@ -700,7 +714,7 @@ function Register() {
 
               <PrimaryButton
                 type="submit"
-                disabled={otp_value.trim() === "" || verifying}
+                disabled={otp_value.trim() === "" || verifying || !verificationEmailSent}
                 style={{ flex: 1 }}
               >
                 {verifying ? (
