@@ -288,10 +288,11 @@ router.post("/signin", expressRateLimit("auth"), signinValidator, validate, asyn
     const token = jwt.sign(
       buildAuthUserJwtPayload(user),
       config.ACCESS_TOKEN,
+      { expiresIn: "7d" }
     );
     return res
       .status(201)
-      .json({ message: "you are verified", status: 201, token });
+      .json({ message: "you are verified", status: 201, token, expiresIn: "7d" });
   } catch (err) {
     return res.status(500).json({ error: "Server error", status: 500 });
   }
