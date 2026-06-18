@@ -38,8 +38,8 @@ jobs:
       - name: Build frontend
         run: npm run build
         env:
-          VITE_APP_URL: http://localhost:2000
-          VITE_APP_front_end_url: http://localhost:5173
+          VITE_URL: http://localhost:2000
+          VITE_FRONT_END_URL: http://localhost:5173
 
   backend:
     name: Backend dependency check

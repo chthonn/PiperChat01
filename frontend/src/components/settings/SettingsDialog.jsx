@@ -6,7 +6,7 @@ import { Save, Lock, Bell, User, Image, CheckCircle2, AlertCircle, Loader2, Penc
 
 import { API_BASE_URL } from "../../config";
 import { resolveProfilePic, handleImageError } from "../../shared/imageFallbacks";
-import { change_tag, change_username, option_profile_pic, set_notification_preferences } from "../../store/userCredsSlice";
+import { change_bio, change_tag, change_username, option_profile_pic, set_notification_preferences } from "../../store/userCredsSlice";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -35,6 +35,8 @@ async function uploadProfilePic(file) {
   console.log("Uploaded image URL:", data?.publicUrl);
   return data?.publicUrl || "";
 }
+
+const BIO_MAX_LENGTH = 190;
 
 const DEFAULT_NOTIFICATION_PREFS = {
   direct_messages: true,
@@ -83,6 +85,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("user");
   const [displayName, setDisplayName] = useState(user.username || "");
+  const [bio, setBio] = useState(user.bio || "");
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [saving, setSaving] = useState(false);
@@ -111,8 +114,9 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
   }, [previewUrl, user.profile_pic, user.username]);
 
   useEffect(() => {
-    if (open && user.username) {
-      setDisplayName(user.username);
+    if (open) {
+      setDisplayName(user.username || "");
+      setBio(user.bio || "");
     }
     if (open) {
       setActiveTab("user");
@@ -123,10 +127,11 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
       setPasswordSuccess("");
       setError("");
     }
-  }, [open, user.username]);
+  }, [open, user.username, user.bio]);
 
   const reset = () => {
     setDisplayName(user.username || "");
+    setBio(user.bio || "");
     setFile(null);
     setPreviewUrl("");
     setSaving(false);
@@ -187,6 +192,12 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
       return;
     }
 
+    const nextBio = String(bio || "").trim();
+    if (nextBio.length > BIO_MAX_LENGTH) {
+      setError(`Bio must be ${BIO_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+
     setSaving(true);
     setError("");
     setSuccess("");
@@ -212,6 +223,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
         body: JSON.stringify({
           username: nextName,
           profile_pic: finalProfilePic || "",
+          bio: nextBio,
         }),
       });
 
@@ -243,6 +255,7 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
       dispatch(change_username(decoded.username));
       dispatch(change_tag(decoded.tag));
       dispatch(option_profile_pic(updatedProfilePic));
+      dispatch(change_bio(decoded.bio || nextBio));
       if (decoded.notification_preferences) {
         dispatch(set_notification_preferences(decoded.notification_preferences));
       }
@@ -422,6 +435,26 @@ export default function SettingsDialog({ triggerClassName, icon: Icon }) {
                         className="h-9 border-white/5 bg-white/[0.03] text-sm text-white placeholder:text-white/10 focus:border-violet-500/40 focus:bg-white/[0.05]"
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Bio</label>
+                      <span className="text-[10px] text-white/30">
+                        {bio.length}/{BIO_MAX_LENGTH}
+                      </span>
+                    </div>
+                    <textarea
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX_LENGTH))}
+                      placeholder="Tell others a little about yourself..."
+                      rows={4}
+                      maxLength={BIO_MAX_LENGTH}
+                      className="w-full resize-none rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/10 outline-none transition-all duration-200 focus:border-violet-500/40 focus:bg-white/[0.05]"
+                    />
+                    <p className="text-[11px] text-white/35">
+                      This appears on your public profile.
+                    </p>
                   </div>
                 </div>
               )}

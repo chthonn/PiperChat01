@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { update_options } from "../../../store/optionsSlice";
-import { API_BASE_URL } from "../../../config";
+import { API_BASE_URL, FRONT_END_URL } from "../../../config";
 import socket from "../../socket/Socket";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "../../ui/dialog";
 import { Button } from "../../ui/button";
@@ -35,7 +35,7 @@ function Navbar2ChatValid({ onNavigate }) {
   const id = useSelector((state) => state.user_info.id);
   const activeChannelId = useSelector((state) => state.currentPage.page_id);
 
-  const front_end_url = import.meta.env.VITE_FRONT_END_URL;
+  const front_end_url = FRONT_END_URL;
 
   const [show, setShow] = useState(false);
   const handleClose = () => {

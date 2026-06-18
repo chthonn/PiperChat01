@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema(
     password: String,
     dob: String,
     profile_pic: String,
+    bio: String,
     authorized: Boolean,
     servers: [
       {

@@ -19,8 +19,19 @@ export const updateProfileValidator = [
     })
     .withMessage("Profile picture must be a valid http(s) URL or empty"),
 
+  body("bio")
+    .optional({ values: "undefined" })
+    .isString()
+    .withMessage("Bio must be a string")
+    .isLength({ max: 190 })
+    .withMessage("Bio must be 190 characters or fewer"),
+
   body().custom((value) => {
-    if (value.username === undefined && value.profile_pic === undefined) {
+    if (
+      value.username === undefined &&
+      value.profile_pic === undefined &&
+      value.bio === undefined
+    ) {
       throw new Error("No changes");
     }
 

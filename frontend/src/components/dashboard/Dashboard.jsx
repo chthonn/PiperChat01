@@ -10,6 +10,7 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   change_username,
   change_tag,
+  change_bio,
   option_profile_pic,
   option_user_id,
   set_notification_preferences,
@@ -143,11 +144,12 @@ function Dashboard() {
     if (token) {
       try {
         const user_creds = jwt(token);
-        const { username, tag, profile_pic, id, notification_preferences } = user_creds;
+        const { username, tag, profile_pic, bio, id, notification_preferences } = user_creds;
 
         dispatch(change_username(username));
         dispatch(change_tag(tag));
         dispatch(option_profile_pic(resolveProfilePic(profile_pic, username)));
+        dispatch(change_bio(bio || ""));
         dispatch(option_user_id(id));
 
         dispatch(
