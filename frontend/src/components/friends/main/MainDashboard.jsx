@@ -20,6 +20,7 @@ import { open_direct_message } from "../../../store/directMessageSlice";
 import { API_BASE_URL } from "../../../config";
 import { Input } from "../../ui/input";
 import { Button } from "../../ui/button";
+import StrangerConnect from "./StrangerConnect";
 
 const OPTION_IMAGES = [
   online_wumpus,
@@ -294,6 +295,10 @@ function MainDashboard({ user_relations }) {
 
   const shouldShowList =
     option_check === 0 ? filteredOptionData.length > 0 : option_status;
+
+  if (option_check === 5) {
+    return <StrangerConnect />;
+  }
 
   return (
     <>

@@ -2,6 +2,8 @@ import User from "../models/User.js";
 import { buildServerTypingEvent } from "../lib/typingEvents.js";
 
 const onlineUsers = new Map();
+const strangerQueue = [];
+const activeStrangerMatches = new Map();
 
 async function shouldSendNotification(userId, preferenceKey) {
   try {
@@ -9,6 +11,26 @@ async function shouldSendNotification(userId, preferenceKey) {
     if (!user) return false;
     const prefs = user.notification_preferences || {};
     return prefs[preferenceKey] !== false;
+  } catch {
+    return true;
+  }
+}
+
+async function isBlockedBetween(userId, partnerId) {
+  if (!userId || !partnerId || userId === partnerId) {
+    return true;
+  }
+
+  try {
+    const user = await User.findById(userId).lean();
+    const partner = await User.findById(partnerId).lean();
+    if (!user || !partner) {
+      return true;
+    }
+
+    const userBlocked = user.blocked?.some((entry) => String(entry.id) === String(partnerId));
+    const partnerBlocked = partner.blocked?.some((entry) => String(entry.id) === String(userId));
+    return Boolean(userBlocked || partnerBlocked);
   } catch {
     return true;
   }
@@ -60,6 +82,100 @@ function setUserOffline(io, userId, socketId) {
   }
 
   onlineUsers.set(normalizedUserId, activeSockets);
+}
+
+function removeFromStrangerQueue(userId) {
+  const normalizedUserId = String(userId);
+  const index = strangerQueue.findIndex((entry) => entry.userId === normalizedUserId);
+  if (index !== -1) {
+    strangerQueue.splice(index, 1);
+  }
+}
+
+function getSocketById(io, socketId) {
+  return io.sockets.sockets.get(socketId);
+}
+
+function endStrangerMatch(io, normalizedUserId, reason = "The stranger conversation has ended.") {
+  const match = activeStrangerMatches.get(normalizedUserId);
+  if (!match) {
+    return;
+  }
+
+  const partnerId = String(match.partnerId);
+  const roomId = match.roomId;
+
+  activeStrangerMatches.delete(normalizedUserId);
+  activeStrangerMatches.delete(partnerId);
+
+  io.to(roomId).emit("stranger_match_ended", { reason });
+}
+
+async function matchStrangerPair(io, first, second) {
+  const firstSocket = getSocketById(io, first.socketId);
+  const secondSocket = getSocketById(io, second.socketId);
+  if (!firstSocket || !secondSocket) {
+    removeFromStrangerQueue(first.userId);
+    removeFromStrangerQueue(second.userId);
+    return;
+  }
+
+  const roomId = `stranger:${Date.now()}:${first.userId}:${second.userId}`;
+  firstSocket.join(roomId);
+  secondSocket.join(roomId);
+
+  activeStrangerMatches.set(first.userId, {
+    partnerId: second.userId,
+    roomId,
+  });
+  activeStrangerMatches.set(second.userId, {
+    partnerId: first.userId,
+    roomId,
+  });
+
+  firstSocket.emit("stranger_matched", {
+    room_id: roomId,
+    partner: {
+      id: second.userId,
+      display_name: second.anonymous ? "Anonymous" : second.username || "Anonymous",
+      profile_pic: second.anonymous ? "" : second.profile_pic || "",
+    },
+  });
+
+  secondSocket.emit("stranger_matched", {
+    room_id: roomId,
+    partner: {
+      id: first.userId,
+      display_name: first.anonymous ? "Anonymous" : first.username || "Anonymous",
+      profile_pic: first.anonymous ? "" : first.profile_pic || "",
+    },
+  });
+}
+
+async function attemptStrangerMatch(io) {
+  while (strangerQueue.length >= 2) {
+    const first = strangerQueue.shift();
+    if (!first) {
+      continue;
+    }
+
+    const partnerIndex = strangerQueue.findIndex(
+      (entry) => entry.userId !== first.userId
+    );
+    if (partnerIndex === -1) {
+      strangerQueue.unshift(first);
+      break;
+    }
+
+    const second = strangerQueue.splice(partnerIndex, 1)[0];
+    const blocked = await isBlockedBetween(first.userId, second.userId);
+    if (blocked) {
+      strangerQueue.push(first);
+      continue;
+    }
+
+    await matchStrangerPair(io, first, second);
+  }
 }
 
 function attachSocketHandlers(io) {
@@ -116,6 +232,146 @@ function attachSocketHandlers(io) {
 
     socket.on("req_removed", (receiver_id) => {
       socket.to(receiver_id).emit("request_updated");
+    });
+
+    socket.on("join_stranger_queue", async ({ anonymous = true } = {}) => {
+      const userId = socket.data.user_id;
+      if (!userId) {
+        return;
+      }
+
+      removeFromStrangerQueue(userId);
+      const normalizedUserId = String(userId);
+      let userRecord;
+      try {
+        userRecord = await User.findById(userId).lean();
+      } catch {
+        userRecord = null;
+      }
+
+      strangerQueue.push({
+        userId: normalizedUserId,
+        socketId: socket.id,
+        anonymous: Boolean(anonymous),
+        username: userRecord?.username || "Anonymous",
+        profile_pic: userRecord?.profile_pic || "",
+      });
+      socket.emit("stranger_queue_status", { status: "waiting" });
+      await attemptStrangerMatch(io);
+    });
+
+    socket.on("leave_stranger_queue", () => {
+      removeFromStrangerQueue(socket.data.user_id);
+      socket.emit("stranger_queue_status", { status: "idle" });
+    });
+
+    socket.on("leave_stranger_chat", () => {
+      if (!socket.data.user_id) {
+        return;
+      }
+      endStrangerMatch(io, String(socket.data.user_id), "The conversation has ended.");
+    });
+
+    socket.on("request_next_stranger", async ({ anonymous = true } = {}) => {
+      const userId = socket.data.user_id;
+      if (!userId) {
+        return;
+      }
+
+      endStrangerMatch(io, String(userId), "You have left the conversation to find a new match.");
+      removeFromStrangerQueue(userId);
+      const normalizedUserId = String(userId);
+      let userRecord;
+      try {
+        userRecord = await User.findById(userId).lean();
+      } catch {
+        userRecord = null;
+      }
+
+      strangerQueue.push({
+        userId: normalizedUserId,
+        socketId: socket.id,
+        anonymous: Boolean(anonymous),
+        username: userRecord?.username || "Anonymous",
+        profile_pic: userRecord?.profile_pic || "",
+      });
+      socket.emit("stranger_queue_status", { status: "waiting" });
+      await attemptStrangerMatch(io);
+    });
+
+    socket.on("report_stranger", async ({ partner_id }) => {
+      const userId = socket.data.user_id;
+      if (!userId || !partner_id) {
+        return;
+      }
+
+      try {
+        const partner = await User.findById(partner_id).lean();
+        if (!partner) {
+          return;
+        }
+
+        await User.updateOne(
+          { _id: userId, "blocked.id": { $ne: partner_id } },
+          {
+            $push: {
+              blocked: {
+                id: partner_id,
+                username: partner.username || "Anonymous",
+                profile_pic: partner.profile_pic || "",
+                tag: partner.tag || "0000",
+              },
+            },
+          },
+        );
+      } catch {
+        // ignore failures for reporting
+      }
+
+      endStrangerMatch(io, String(userId), "The conversation ended after reporting the user.");
+    });
+
+    socket.on("block_stranger", async ({ partner_id }) => {
+      const userId = socket.data.user_id;
+      if (!userId || !partner_id) {
+        return;
+      }
+
+      try {
+        const partner = await User.findById(partner_id).lean();
+        if (!partner) {
+          return;
+        }
+
+        await User.updateOne(
+          { _id: userId, "blocked.id": { $ne: partner_id } },
+          {
+            $push: {
+              blocked: {
+                id: partner_id,
+                username: partner.username || "Anonymous",
+                profile_pic: partner.profile_pic || "",
+                tag: partner.tag || "0000",
+              },
+            },
+          },
+        );
+      } catch {
+        // ignore failures for blocking
+      }
+
+      endStrangerMatch(io, String(userId), "The user has been blocked and removed from the chat.");
+    });
+
+    socket.on("stranger_message", (room_id, message_data) => {
+      if (!room_id || !message_data) {
+        return;
+      }
+
+      socket.to(room_id).emit("stranger_message", {
+        room_id,
+        message_data,
+      });
     });
 
     socket.on("join_chat", (data) => {
@@ -233,6 +489,10 @@ function attachSocketHandlers(io) {
 
     socket.on("disconnect", () => {
       setUserOffline(io, socket.data.user_id, socket.id);
+      removeFromStrangerQueue(socket.data.user_id);
+      if (socket.data?.user_id) {
+        endStrangerMatch(io, String(socket.data.user_id), "The stranger has disconnected.");
+      }
     });
   });
 }
