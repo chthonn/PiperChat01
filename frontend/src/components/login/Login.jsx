@@ -219,16 +219,26 @@ function Login() {
               required
               disabled={submitting}
               placeholder="••••••••"
+              style={{ paddingRight: "3rem" }}
             />
             <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[70%] -translate-y-1/2"
-                style={{cursor : 'pointer'}}
-              >
-                {showPassword ? ( <FiEyeOff size={14} style={{ color: "var(--text-secondary)" }} />) : (
-                  <FiEye size={14} style={{ color: "var(--text-secondary)" }} />)}
-              </button>
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-3 top-[70%] -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-colors duration-200"
+              style={{
+                cursor: "pointer",
+                background: "rgba(255,255,255,0.08)",
+                borderColor: "rgba(255,255,255,0.12)",
+                color: "rgba(255,255,255,0.82)",
+              }}
+            >
+              {showPassword ? (
+                <FiEyeOff size={16} style={{ color: "currentColor" }} />
+              ) : (
+                <FiEye size={16} style={{ color: "currentColor" }} />
+              )}
+            </button>
           </div>
 
           <div className="pt-1">
