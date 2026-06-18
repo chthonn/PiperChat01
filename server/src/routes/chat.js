@@ -9,6 +9,7 @@ import Server from "../models/Server.js";
 import User from "../models/User.js";
 import * as cache from "../lib/cache.js";
 import { isServerOwner } from "../lib/serverAuthorization.js";
+import { validateMessageContent } from "../lib/validation.js";
 import logger from "../lib/winston.js";
 import { getChats } from "../services/chatService.js";
 import { incrementServerUnread } from "../services/unreadService.js";
@@ -69,8 +70,15 @@ router.post("/store_message", expressRateLimit("chat"), storeMessageValidator, v
     profile_pic,
   } = req.body;
 
+  const messageValidation = validateMessageContent(message);
+  if (!messageValidation.valid) {
+    return res
+      .status(400)
+      .json({ status: 400, message: messageValidation.message });
+  }
+
   const chatMessage = {
-    content: message,
+    content: messageValidation.value,
     sender_id: id,
     sender_name: username,
     sender_pic: profile_pic,
@@ -122,7 +130,11 @@ router.post("/store_message", expressRateLimit("chat"), storeMessageValidator, v
       },
     };
     try {
-      const data = await Chat.updateOne({ server_id }, pushNewChannel);
+      const data = await Chat.updateOne(
+        { server_id },
+        pushNewChannel,
+        { runValidators: true },
+      );
       if (data && data.modifiedCount > 0) {
         await cache.del(`chat:${server_id}:${channel_id}`);
         await notifyServerRecipients();
@@ -149,6 +161,7 @@ router.post("/store_message", expressRateLimit("chat"), storeMessageValidator, v
       const data = await Chat.updateOne(
         { server_id, "channels.channel_id": channel_id },
         pushNewChat,
+        { runValidators: true },
       );
       if (data && data.modifiedCount > 0) {
         await cache.del(`chat:${server_id}:${channel_id}`);
@@ -206,6 +219,15 @@ router.post("/edit_server_message", editServerMessageValidator, validate, async 
   }
   const senderId = user.id;
 
+  const contentValidation = validateMessageContent(content);
+  if (!server_id || !channel_id || !timestamp || !contentValidation.valid) {
+    return res.status(400).json({
+      status: 400,
+      message: contentValidation.message || "Invalid input",
+    });
+  }
+
+
   try {
     const chatDoc = await Chat.findOne({
       server_id,
@@ -226,7 +248,7 @@ router.post("/edit_server_message", editServerMessageValidator, validate, async 
         .json({ status: 404, message: "Message not found" });
     }
 
-    message.content = content.trim();
+    message.content = contentValidation.value;
     await chatDoc.save();
     await cache.del(`chat:${server_id}:${channel_id}`);
 

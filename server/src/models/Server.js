@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
+import { SERVER_NAME_MAX_LENGTH } from "../lib/validation.js";
 
 const serverSchema = new mongoose.Schema({
-  server_name: String,
+  server_name: { type: String, maxlength: SERVER_NAME_MAX_LENGTH },
   server_pic: String,
   users: [
     {

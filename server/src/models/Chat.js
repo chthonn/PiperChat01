@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MESSAGE_MAX_LENGTH } from "../lib/validation.js";
 
 const chatSchema = new mongoose.Schema({
   server_id: String,
@@ -8,7 +9,7 @@ const chatSchema = new mongoose.Schema({
       channel_name: String,
       chat_details: [
         {
-          content: String,
+          content: { type: String, maxlength: MESSAGE_MAX_LENGTH },
           sender_id: String,
           sender_name: String,
           sender_pic: String,

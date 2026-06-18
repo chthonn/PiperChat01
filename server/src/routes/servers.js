@@ -11,6 +11,7 @@ import {
   canRemoveServerMember,
   isServerOwner,
 } from "../lib/serverAuthorization.js";
+import { validateServerName } from "../lib/validation.js";
 import { createChat } from "../services/chatService.js";
 import {
   addServerToUser,
@@ -43,9 +44,17 @@ router.post("/create_server", createServerValidator, validate, async (req, res) 
     return res.status(401).json({ message: "Unauthorized", status: 401 });
   }
 
+  const serverDetails = req.body.server_details || {};
+  const nameValidation = validateServerName(serverDetails.name);
+  if (!nameValidation.valid) {
+    return res
+      .status(400)
+      .json({ status: 400, message: nameValidation.message });
+  }
+
   const serverTemplate = await createServerFromTemplate(
     user_id,
-    req.body.server_details,
+    { ...serverDetails, name: nameValidation.value },
     req.body.server_image
   );
   const addNewChat = await createChat(serverTemplate.server_id);
@@ -57,7 +66,7 @@ router.post("/create_server", createServerValidator, validate, async (req, res) 
   const addServer = await addServerToUser(
     user_id.id,
     serverTemplate,
-    req.body.server_details.role
+    serverDetails.role
   );
 
   if (addServer) {
