@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Hash, Pencil, Trash2, Save, SendHorizontal, Loader2, AlertCircle, Pin } from "lucide-react";
+import { Hash, Pencil, Trash2, Save, SendHorizontal, Loader2, AlertCircle,Reply, Pin, X } from "lucide-react";
 import socket from "../../socket/Socket";
 import { useParams } from "react-router-dom";
 import { clear_channel_unread } from "../../../store/unreadSlice";
@@ -32,47 +32,11 @@ function ValidChat() {
   const [editingContent, setEditingContent] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [typingUsers, setTypingUsers] = useState({});
-  const messagesEndRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
-  const typingUserTimeoutsRef = useRef({});
-  const isTypingRef = useRef(false);
-
-  const stopTyping = () => {
-    if (!isTypingRef.current) {
-      return;
-    }
-
-    clearTimeout(typingTimeoutRef.current);
-    isTypingRef.current = false;
-    socket.emit("server_stop_typing", { channel_id, server_id });
-  };
-
-  const handleMessageChange = (e) => {
-    const nextMessage = e.target.value;
-    setchat_message(nextMessage);
-
-    if (!channel_id || !server_id || !id) {
-      return;
-    }
-
-    if (!nextMessage.trim()) {
-      stopTyping();
-      return;
-    }
-
-    if (!isTypingRef.current) {
-      isTypingRef.current = true;
-      socket.emit("server_typing", {
-        channel_id,
-        server_id,
-        username,
-      });
-    }
-
-    clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(stopTyping, 2000);
-  };
+  const [replyTo, setReplyTo] = useState(null);
+  const [showPinned, setShowPinned] = useState(false);
+  const pinnedMessages = all_messages.filter(
+  (message) => message.isPinned
+  );
 
   useEffect(() => {
     if(socket && channel_id){
@@ -109,11 +73,15 @@ function ValidChat() {
         tag,
         id,
         profile_pic,
+        replyTo,
       }),
     });
     const data = await res.json();
     if (data.status !== 200) {
       setchat_message(chat_message);
+    }
+    if (data.status === 200) {
+    setReplyTo(null);
     }
   };
 
@@ -231,32 +199,31 @@ function ValidChat() {
   };
 
   const togglePinMessage = async (message) => {
-    const res = await fetch(`${url}/chat/toggle_server_message_pin`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-auth-token": localStorage.getItem("token"),
-      },
-      body: JSON.stringify({
-        server_id,
-        channel_id,
-        timestamp: message.timestamp,
-        sender_id: message.sender_id,
-      }),
-    });
+  const res = await fetch(`${url}/chat/toggle_pin_message`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-auth-token": localStorage.getItem("token"),
+    },
+    body: JSON.stringify({
+      server_id,
+      channel_id,
+      timestamp: message.timestamp,
+    }),
+  });
 
-    const data = await res.json();
-    if (data.status === 200) {
-      setall_messages((currentMessages) =>
-        currentMessages.map((entry) =>
-          String(entry.timestamp) === String(message.timestamp) &&
-          String(entry.sender_id) === String(message.sender_id)
-            ? { ...entry, is_pinned: data.is_pinned }
-            : entry
-        )
-      );
-    }
-  };
+  const data = await res.json();
+
+  if (data.status === 200) {
+    setall_messages((currentMessages) =>
+      currentMessages.map((entry) =>
+        String(entry.timestamp) === String(message.timestamp)
+          ? { ...entry, isPinned: data.isPinned }
+          : entry
+      )
+    );
+  }
+};
 
   useEffect(() => {
     const handleReceiveMessage = (messageData) => {
@@ -306,77 +273,26 @@ function ValidChat() {
         )
       );
     };
-
-    const handlePinUpdatedMessage = (message_data) => {
+    const handlePinUpdated = (message_data) => {
       setall_messages((currentMessages) =>
         (currentMessages || []).map((entry) =>
-          String(entry.timestamp) === String(message_data.timestamp) &&
-          entry.sender_id === message_data.sender_id
-            ? { ...entry, is_pinned: message_data.is_pinned }
+          String(entry.timestamp) === String(message_data.timestamp)
+            ? { ...entry, isPinned: message_data.isPinned }
             : entry
         )
       );
     };
-
-    const handleTyping = (typingData) => {
-      if (
-        String(typingData?.server_id) !== String(server_id) ||
-        String(typingData?.channel_id) !== String(channel_id) ||
-        String(typingData?.from) === String(id)
-      ) {
-        return;
-      }
-
-      setTypingUsers((currentUsers) => ({
-        ...currentUsers,
-        [String(typingData.from)]: typingData.username || "Someone",
-      }));
-
-      clearTimeout(typingUserTimeoutsRef.current[String(typingData.from)]);
-      typingUserTimeoutsRef.current[String(typingData.from)] = setTimeout(() => {
-        setTypingUsers((currentUsers) => {
-          const nextUsers = { ...currentUsers };
-          delete nextUsers[String(typingData.from)];
-          return nextUsers;
-        });
-        delete typingUserTimeoutsRef.current[String(typingData.from)];
-      }, 3000);
-    };
-
-    const handleStopTyping = (typingData) => {
-      if (
-        String(typingData?.server_id) !== String(server_id) ||
-        String(typingData?.channel_id) !== String(channel_id)
-      ) {
-        return;
-      }
-
-      setTypingUsers((currentUsers) => {
-        const nextUsers = { ...currentUsers };
-        delete nextUsers[String(typingData.from)];
-        return nextUsers;
-      });
-      clearTimeout(typingUserTimeoutsRef.current[String(typingData.from)]);
-      delete typingUserTimeoutsRef.current[String(typingData.from)];
-    };
-
     //earlier it was server_message_receive which was wrong
     socket.on("server_message_received", handleReceiveMessage);
     socket.on("server_message_updated", handleUpdatedMessage);
     socket.on("server_message_deleted", handleDeletedMessage);
-    socket.on("server_message_pin_updated", handlePinUpdatedMessage);
-    socket.on("server_typing", handleTyping);
-    socket.on("server_stop_typing", handleStopTyping);
+    socket.on("server_message_pin_updated", handlePinUpdated);
 
     return () => {
       socket.off("server_message_received", handleReceiveMessage);
       socket.off("server_message_updated", handleUpdatedMessage);
       socket.off("server_message_deleted", handleDeletedMessage);
-      socket.off("server_message_pin_updated", handlePinUpdatedMessage);
-      socket.off("server_typing", handleTyping);
-      socket.off("server_stop_typing", handleStopTyping);
-      Object.values(typingUserTimeoutsRef.current).forEach(clearTimeout);
-      typingUserTimeoutsRef.current = {};
+      socket.off("server_message_pin_updated", handlePinUpdated);
     };
   }, [channel_id, id, server_id]);
 
@@ -408,8 +324,18 @@ function ValidChat() {
             <div className="grid h-16 w-16 place-items-center rounded-full bg-white/5">
               <Hash className="h-8 w-8 text-brand-300" />
             </div>
-            <div className="text-2xl font-extrabold tracking-tight text-white">
-              Welcome to #{channel_name}!
+           <div className="flex items-center gap-3">
+              <div className="text-xl font-extrabold tracking-tight text-white">
+                Welcome to #{channel_name}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowPinned(!showPinned)}
+                className="rounded-lg border border-white/10 bg-white/5 p-2 text-white/70 hover:bg-white/10"
+              >
+                <Pin className="h-4 w-4" />
+              </button>
             </div>
             <div className="text-white/60">
               This is the start of the #{channel_name} channel. Send a message to start the conversation!
@@ -433,6 +359,100 @@ function ValidChat() {
           </div>
         </div>
 
+          {showPinned && (
+            <div className="mb-4 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+              <div className="mb-3 font-bold text-yellow-300">
+                📌 Pinned Messages
+              </div>
+
+              {pinnedMessages.length === 0 ? (
+                <div className="text-sm text-white/60">
+                  No pinned messages yet.
+                </div>
+              ) : (
+                pinnedMessages.map((msg) => (
+                  <div
+                    key={`pin-${msg.timestamp}`}
+                    className="mb-2 rounded-lg bg-black/20 p-3"
+                  >
+                    <div className="text-xs text-yellow-300">
+                      {msg.sender_name}
+                    </div>
+
+                    <div className="text-sm text-white">
+                      {msg.content}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          <div className="mb-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowPinned(!showPinned)}
+                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 hover:bg-white/10"
+              >
+                <Pin className="h-4 w-4" />
+                Pinned Messages ({pinnedMessages.length})
+              </button>
+            </div>
+
+            {showPinned && (
+              <div className="mb-4 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+                <div className="mb-3 font-bold text-yellow-300">
+                  📌 Pinned Messages
+                </div>
+
+                {pinnedMessages.length === 0 ? (
+                  <div className="text-sm text-white/60">
+                    No pinned messages yet.
+                  </div>
+                ) : (
+                  pinnedMessages.map((msg) => (
+                    <button
+                      key={`pin-${msg.timestamp}`}
+                      type="button"
+                      onClick={() => {
+                        document
+                          .getElementById(`message-${msg.timestamp}`)
+                          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }}
+                      className="mb-2 block w-full rounded-lg bg-black/20 p-3 text-left hover:bg-black/40"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-yellow-300">
+                            {msg.sender_name}
+                          </div>
+
+                          <div className="truncate text-sm text-white">
+                            {msg.content}
+                          </div>
+
+                          <div className="mt-1 text-[10px] text-white/40">
+                            Click to jump to message
+                          </div>
+                        </div>
+
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePinMessage(msg);
+                          }}
+                          className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-1 text-yellow-300 hover:bg-yellow-500/20"
+                          title="Unpin message"
+                        >
+                          <Pin className="h-4 w-4" />
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
         <div className="mt-5 space-y-1.5 sm:space-y-2">
           {(all_messages || []).map((elem) => {
             const date = new Date(Number(elem.timestamp));
@@ -445,6 +465,7 @@ function ValidChat() {
 
             return (
               <div
+               id={`message-${elem.timestamp}`}
                 key={`${elem.timestamp}-${elem.sender_id}`}
                 className={`group flex gap-2 rounded-2xl px-1 py-1.5 transition hover:bg-white/5 sm:gap-3 sm:px-2 sm:py-2 ${elem.is_pinned ? "border border-brand-300/20 bg-brand-300/5" : ""}`}
               >
@@ -465,50 +486,61 @@ function ValidChat() {
                     <div className="text-[10px] leading-none text-white/35">
                       {timestamp}
                     </div>
-                    {elem.is_pinned ? (
-                      <div className="inline-flex items-center gap-1 rounded-full border border-brand-300/25 bg-brand-300/10 px-2 py-0.5 text-[10px] font-semibold text-brand-200">
-                        <Pin className="h-3 w-3" />
-                        Pinned
-                      </div>
-                    ) : null}
-                    <div className="ml-auto flex items-center gap-1">
-                      {mine ? (
-                        <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-                          <button
-                            type="button"
-                            className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
-                            onClick={() => {
-                              setEditingTimestamp(elem.timestamp);
-                              setEditingContent(elem.content);
-                            }}
-                            title="Edit"
-                            aria-label="Edit"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
-                            onClick={() => deleteMessage(elem)}
-                            title="Delete"
-                            aria-label="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : null}
-                      {isServerOwner ? (
+                  {mine ? (
+                    <div className="ml-auto flex items-center gap-1 flex-nowrap opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                      <button
+                        type="button"
+                        className="h-8 w-8 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
+                        onClick={() =>
+                          setReplyTo({
+                            sender_name: elem.sender_name,
+                            content: elem.content,
+                            timestamp: elem.timestamp,
+                          })
+                        }
+                        title="Reply"
+                        aria-label="Reply"
+                      >
+                        <Reply className="h-4 w-4" />
+                      </button>
+
                         <button
                           type="button"
-                          className={`rounded-lg border border-white/10 bg-white/5 p-1.5 transition hover:bg-white/10 hover:text-white ${elem.is_pinned ? "text-brand-200" : "text-white/60"}`}
+                          className={`h-8 w-8 flex items-center justify-center rounded-lg border border-white/10 transition ${
+                            elem.isPinned
+                              ? "bg-yellow-500/20 text-yellow-300"
+                              : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                          }`}
                           onClick={() => togglePinMessage(elem)}
-                          title={elem.is_pinned ? "Unpin" : "Pin"}
-                          aria-label={elem.is_pinned ? "Unpin message" : "Pin message"}
+                          title="Pin Message"
                         >
                           <Pin className="h-4 w-4" />
                         </button>
-                      ) : null}
+
+                      <button
+                        type="button"
+                        className="h-8 w-8 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
+                        onClick={() => {
+                          setEditingTimestamp(elem.timestamp);
+                          setEditingContent(elem.content);
+                        }}
+                        title="Edit"
+                        aria-label="Edit"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="h-8 w-8 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
+                        onClick={() => deleteMessage(elem)}
+                        title="Delete"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
+                  ) : null}
                   </div>
 
                   {isEditing ? (
@@ -539,9 +571,20 @@ function ValidChat() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-[1.45] text-white/85">
-                      {elem.content}
-                    </div>
+                   <div className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-[1.45] text-white/85">
+                    {elem.replyTo && (
+                      <div className="mb-2 w-fit max-w-md rounded-lg border-l-2 border-blue-400 bg-white/5 px-3 py-2 text-xs">
+                        <div className="font-semibold text-blue-300">
+                          {elem.replyTo.sender_name}
+                        </div>
+                        <div className="truncate text-white/60">
+                          {elem.replyTo.content}
+                        </div>
+                      </div>
+                    )}
+
+                    {elem.content}
+                  </div>
                   )}
                 </div>
               </div>
@@ -560,6 +603,26 @@ function ValidChat() {
       ) : null}
 
       <div className="border-t border-white/10 bg-black/25 p-3">
+          {replyTo && (
+            <div className="mb-2 flex items-center justify-between rounded-lg border border-blue-500/30 bg-blue-500/10 p-2">
+              <div>
+                <div className="text-xs font-semibold text-blue-300">
+                  Replying to {replyTo.sender_name}
+                </div>
+                <div className="text-xs text-white/70">
+                  {replyTo.content}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setReplyTo(null)}
+                className="text-white/60 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         <div className="flex items-center gap-2">
           <Input
             value={chat_message}

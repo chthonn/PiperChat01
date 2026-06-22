@@ -5,7 +5,7 @@ import socket from "../socket/Socket";
 import { clear_dm_unread } from "../../store/unreadSlice";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Pencil, Trash2, Save, Send } from "lucide-react";
+import { Pencil, Trash2, Save, Send, Reply, Pin, X } from "lucide-react";
 import { API_BASE_URL } from "../../config";
 
 function DirectMessage() {
@@ -19,7 +19,8 @@ function DirectMessage() {
   const [friendIsTyping, setFriendIsTyping] = useState(false);
   const typingTimeoutRef = useRef(null);
   const isTypingRef = useRef(false);
-  const messagesEndRef = useRef(null);
+  const [replyTo, setReplyTo] = useState(null);
+  const [showPinned, setShowPinned] = useState(false);
 
   const url = API_BASE_URL;
 
@@ -181,11 +182,15 @@ function DirectMessage() {
       body: JSON.stringify({
         friend_id: activeFriend.id,
         content: message,
+        replyTo,
       }),
     });
     const data = await res.json();
     if (data.status !== 200) {
       setInput(message);
+    }
+    if(data.status === 200) {
+      setReplyTo(null);
     }
   };
 
@@ -246,6 +251,32 @@ function DirectMessage() {
       );
     }
   };
+
+  const togglePinMessage = async (message) => {
+  const res = await fetch(`${url}/direct-messages/toggle_pin_direct_message`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-auth-token": localStorage.getItem("token"),
+    },
+    body: JSON.stringify({
+      friend_id: activeFriend.id,
+      timestamp: message.timestamp,
+    }),
+  });
+
+  const data = await res.json();
+
+  if (data.status === 200) {
+    setMessages((currentMessages) =>
+      currentMessages.map((entry) =>
+        String(entry.timestamp) === String(message.timestamp)
+          ? { ...entry, isPinned: data.isPinned }
+          : entry
+      )
+    );
+  }
+};
 
   if (!activeFriend) {
     return null;
@@ -334,6 +365,18 @@ function DirectMessage() {
                             : "border-white/10 bg-white/5 text-white/85",
                         ].join(" ")}
                       >
+
+                        {message.replyTo && (
+                          <div className="mb-2 rounded-lg border-l-2 border-blue-400 bg-black/20 p-2 text-xs">
+                            <div className="font-semibold text-blue-300">
+                              {message.replyTo.sender_name}
+                            </div>
+                            <div className="truncate text-white/70">
+                              {message.replyTo.content}
+                            </div>
+                          </div>
+                        )}
+
                         {message.content}
                       </div>
 
@@ -348,10 +391,49 @@ function DirectMessage() {
                           <button
                             type="button"
                             className="rounded-xl border border-white/10 bg-zinc-950/70 p-1.5 text-white/65 shadow-soft backdrop-blur transition hover:bg-zinc-950/85 hover:text-white"
+                            onClick={() =>
+                              setReplyTo({
+                                sender_name: mine ? "You" : activeFriend.username,
+                                content: message.content,
+                                timestamp: message.timestamp,
+                              })
+                            }
+                            title="Reply"
+                          >
+                            <Reply className="h-4 w-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            className="rounded-xl border border-white/10 bg-zinc-950/70 p-1.5 text-white/65 shadow-soft backdrop-blur transition hover:bg-zinc-950/85 hover:text-white"
+                            onClick={() => togglePinMessage(message)}
+                            title="Pin"
+                          >
+                            <Pin className="h-4 w-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            className="rounded-xl border border-white/10 bg-zinc-950/70 p-1.5 text-white/65 shadow-soft backdrop-blur transition hover:bg-zinc-950/85 hover:text-white"
                             onClick={() => startEditing(message)}
                             title="Edit"
                             aria-label="Edit"
                           >
+                          <button
+                            type="button"
+                            className="rounded-xl border border-white/10 bg-zinc-950/70 p-1.5 text-white/65 shadow-soft backdrop-blur transition hover:bg-zinc-950/85 hover:text-white"
+                            onClick={() =>
+                              setReplyTo({
+                                sender_name: mine ? "You" : activeFriend.username,
+                                content: message.content,
+                                timestamp: message.timestamp,
+                              })
+                            }
+                            title="Reply"
+                          >
+                            <Reply className="h-4 w-4" />
+                          </button>
+                          
                             <Pencil className="h-4 w-4" />
                           </button>
                           <button
@@ -392,6 +474,26 @@ function DirectMessage() {
         </div>
       )}
       <div className="border-t border-white/10 bg-black/25 p-3">
+      {replyTo && (
+        <div className="mb-2 flex items-center justify-between rounded-lg border border-blue-500/30 bg-blue-500/10 p-2">
+          <div>
+            <div className="text-xs font-semibold text-blue-300">
+              Replying to {replyTo.sender_name}
+            </div>
+            <div className="text-xs text-white/70">
+              {replyTo.content}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setReplyTo(null)}
+            className="text-white/60 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
         <form
           className="flex items-center gap-2"
           onSubmit={(e) => {

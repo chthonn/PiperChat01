@@ -10,6 +10,17 @@ const directMessageThreadSchema = new mongoose.Schema({
       sender_pic: String,
       content: String,
       timestamp: Number,
+
+      replyTo: {
+        sender_name: String,
+        content: String,
+        timestamp: Number,
+      },
+
+      isPinned: {
+        type: Boolean,
+        default: false,
+      },
     },
   ],
 });
