@@ -1,7 +1,35 @@
 import User from "../models/User.js";
+import Chat from "../models/Chat.js";
+import Server from "../models/Server.js";
 import { buildServerTypingEvent } from "../lib/typingEvents.js";
 
 const onlineUsers = new Map();
+
+async function verifyChannelAccess(userId, channelId, serverId = null) {
+  try {
+    const chat = await Chat.findById(channelId).lean();
+    if (!chat) return false;
+
+    if (chat.type === "dm") {
+      return String(chat.user1) === String(userId) || String(chat.user2) === String(userId);
+    }
+
+    if (serverId) {
+      const server = await Server.findById(serverId).lean();
+      if (!server) return false;
+
+      const isOwner = String(server.owner) === String(userId);
+      const isMember = server.members?.some((m) => String(m.userId) === String(userId));
+
+      return isOwner || isMember;
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Error verifying channel access:", error);
+    return false;
+  }
+}
 
 async function shouldSendNotification(userId, preferenceKey) {
   try {
@@ -118,32 +146,45 @@ function attachSocketHandlers(io) {
       socket.to(receiver_id).emit("request_updated");
     });
 
-    socket.on("join_chat", (data) => {
-      const channel_id = typeof data === "object" ? data.channel_id : data;
-      const normalizedChannelId = String(channel_id || "");
+    socket.on("join_chat", async (data) => {
+      try {
+        const channel_id = typeof data === "object" ? data.channel_id : data;
+        const normalizedChannelId = String(channel_id || "");
+        const userId = socket.data.user_id;
 
-      // console.log("Socket room report...debug");
-      // console.log("Current rooms:", socket.rooms);
+        if (!normalizedChannelId || !userId) {
+          socket.emit("error", { message: "Invalid channel or user" });
+          return;
+        }
 
-      if (!normalizedChannelId) {
-        return;
+        const hasAccess = await verifyChannelAccess(
+          userId,
+          normalizedChannelId,
+          socket.data.server_id
+        );
+
+        if (!hasAccess) {
+          console.warn(
+            `[SECURITY] Unauthorized channel join attempt: User ${userId} tried to join channel ${normalizedChannelId}`
+          );
+          socket.emit("error", { message: "You do not have access to this channel" });
+          return;
+        }
+
+        if (
+          socket.data.active_channel_id &&
+          socket.data.active_channel_id !== normalizedChannelId
+        ) {
+          socket.leave(socket.data.active_channel_id);
+          socket.leave(`channel:${socket.data.active_channel_id}`);
+        }
+
+        socket.data.active_channel_id = normalizedChannelId;
+        socket.join(`channel:${normalizedChannelId}`);
+      } catch (error) {
+        console.error("Error in join_chat handler:", error);
+        socket.emit("error", { message: "Failed to join channel" });
       }
-
-      //now we are checking if a user is already there in another channel
-      if (
-        socket.data.active_channel_id &&
-        socket.data.active_channel_id !== normalizedChannelId
-      ) {
-        socket.leave(socket.data.active_channel_id);
-        socket.leave(`channel:${socket.data.active_channel_id}`);
-        // console.log(
-        //   `Socket ${socket.id} left the channel: ${socket.data.active_channel_id}`,
-        // );
-      }
-
-      socket.data.active_channel_id = normalizedChannelId;
-      socket.join(`channel:${normalizedChannelId}`);
-      // console.log("Now in thr room:", `channel:${normalizedChannelId}`);
     });
 
     socket.on("join_server", (server_id) => {
@@ -165,16 +206,49 @@ function attachSocketHandlers(io) {
 
     socket.on(
       "send_message",
-      (channel_id, message, timestamp, sender_name, sender_tag, sender_pic) => {
-        socket.to(`channel:${channel_id}`).emit("recieve_message", {
-          message_data: {
-            message,
-            timestamp,
-            sender_name,
-            sender_tag,
-            sender_pic,
-          },
-        });
+      async (channel_id, message, timestamp, sender_name, sender_tag, sender_pic) => {
+        try {
+          const normalizedChannelId = String(channel_id || "");
+          const userId = socket.data.user_id;
+
+          if (!normalizedChannelId || !userId) {
+            return;
+          }
+
+          const hasAccess = await verifyChannelAccess(
+            userId,
+            normalizedChannelId,
+            socket.data.server_id
+          );
+
+          if (!hasAccess) {
+            console.warn(
+              `[SECURITY] Unauthorized message attempt: User ${userId} tried to send message to channel ${normalizedChannelId}`
+            );
+            socket.emit("error", { message: "You do not have access to this channel" });
+            return;
+          }
+
+          if (String(socket.data.active_channel_id || "") !== normalizedChannelId) {
+            console.warn(
+              `[SECURITY] Channel mismatch: User ${userId} is not in channel ${normalizedChannelId}`
+            );
+            return;
+          }
+
+          socket.to(`channel:${normalizedChannelId}`).emit("recieve_message", {
+            message_data: {
+              message,
+              timestamp,
+              sender_name,
+              sender_tag,
+              sender_pic,
+            },
+          });
+        } catch (error) {
+          console.error("Error in send_message handler:", error);
+          socket.emit("error", { message: "Failed to send message" });
+        }
       },
     );
 
