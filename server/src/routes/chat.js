@@ -18,6 +18,7 @@ import expressRateLimit from "../middleware/rateLimit.js";
 
 import { deleteServerMessageValidator, editServerMessageValidator, getMessagesValidator, storeMessageValidator } from "../validators/chat.js";
 import validate from "../middleware/validate.js";
+import { authToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -56,7 +57,7 @@ function findChatMessage(channel, timestamp, senderId) {
   );
 }
 
-router.post("/store_message", expressRateLimit("chat"), storeMessageValidator, validate, async (req, res) => {
+router.post("/store_message", authToken, expressRateLimit("chat"), storeMessageValidator, validate, async (req, res) => {
   const {
     message,
     server_id,
@@ -169,7 +170,7 @@ router.post("/store_message", expressRateLimit("chat"), storeMessageValidator, v
   }
 });
 
-router.post("/get_messages", getMessagesValidator, validate, async (req, res) => {
+router.post("/get_messages", authToken, getMessagesValidator, validate, async (req, res) => {
   const { channel_id, server_id } = req.body;
 
   try {
