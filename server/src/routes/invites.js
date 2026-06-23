@@ -21,63 +21,131 @@ import validate from "../middleware/validate.js";
 
 const router = express.Router();
 
-router.post("/create_invite_link", createInviteLinkValidator, validate, async (req, res) => {
-  const {
-    inviter_name,
-    inviter_id,
-    server_name,
-    server_id,
-    server_pic,
-  } = req.body;
+/**
+ * Determine whether a raw string is a syntactically valid Mongo ObjectId.
+ *
+ * Mongoose's `new mongoose.Types.ObjectId(value)` will throw a CastError for
+ * malformed input, but doing that check inside the route handler is messy —
+ * this helper keeps the route clean and makes the validation testable.
+ *
+ * @param {unknown} value - Raw value supplied by the client.
+ * @returns {boolean} True if the value can be coerced to an ObjectId.
+ */
+function isValidObjectId(value) {
+  if (typeof value !== "string" && !(value instanceof mongoose.Types.ObjectId)) {
+    return false;
+  }
+  return mongoose.Types.ObjectId.isValid(String(value));
+}
 
-  const response = await checkInviteLink(inviter_id, server_id);
-
-  if (!response[0].invites || response[0].invites.length === 0) {
-    const timestamp = Date.now();
-    const invite_code = shortid();
-
-    const addNewInviteLink = new Invite({
-      invite_code,
+router.post(
+  "/create_invite_link",
+  createInviteLinkValidator,
+  validate,
+  /**
+   * Create or reuse a server invite link.
+   *
+   * The previous implementation crashed with a TypeError when
+   * `checkInviteLink` returned an empty array (e.g. the inviter had been
+   * deleted, or the server_id had never been linked to one of their invites).
+   * It also propagated Mongoose CastErrors for malformed IDs straight to the
+   * client, which is both ugly and leaks internal type names.
+   *
+   * The fix:
+   *   1. Validate `inviter_id` / `server_id` are well-formed ObjectIds up front.
+   *   2. Treat an empty aggregation result as "no matching invite" rather than
+   *      a programmer error — that's the path that creates a new invite.
+   *   3. Wrap each MongoDB call in its own try/catch so a single failure
+   *      returns a clean 500 instead of an uncaught promise rejection.
+   *   4. Wrap the whole handler in a final try/catch as a safety net.
+   *
+   * @param {express.Request} req
+   * @param {express.Response} res
+   */
+  async (req, res) => {
+    const {
       inviter_name,
       inviter_id,
       server_name,
       server_id,
       server_pic,
-      timestamp: String(timestamp),
-    });
-    try {
-      await addNewInviteLink.save();
-    } catch (err) {
-      return res.status(500).json({ status: 500, message: "Server error" });
+    } = req.body;
+
+    // Defensive ID validation. The validator chain already checks
+    // `notEmpty()`, but it does not enforce the ObjectId shape — a string like
+    // "abc" would otherwise reach `new mongoose.Types.ObjectId(...)` and
+    // surface as an ugly CastError to the client.
+    if (!isValidObjectId(inviter_id) || !isValidObjectId(server_id)) {
+      return res.status(400).json({
+        success: false,
+        status: 400,
+        message: "inviter_id and server_id must be valid Mongo ObjectIds",
+      });
     }
 
-    const userInvitesList = {
-      $push: {
-        invites: [
-          {
-            server_id,
-            invite_code,
-            timestamp: String(timestamp),
-          },
-        ],
-      },
-    };
     try {
-      await User.updateOne(
-        { _id: new mongoose.Types.ObjectId(inviter_id) },
-        userInvitesList,
-      );
+      const response = await checkInviteLink(inviter_id, server_id);
+      const existingInvite = Array.isArray(response) ? response[0] : null;
+      const existingInvites = existingInvite?.invites || [];
+
+      if (existingInvites.length > 0) {
+        // Reuse the most recent invite for this server.
+        return res.json({
+          status: 200,
+          invite_code: existingInvites[0].invite_code,
+        });
+      }
+
+      // No matching invite — mint a fresh one.
+      const timestamp = Date.now();
+      const invite_code = shortid();
+
+      const newInvite = new Invite({
+        invite_code,
+        inviter_name,
+        inviter_id,
+        server_name,
+        server_id,
+        server_pic,
+        timestamp: String(timestamp),
+      });
+
+      try {
+        await newInvite.save();
+      } catch (err) {
+        console.error("[/create_invite_link] failed to save Invite:", err);
+        return res.status(500).json({ status: 500, message: "Server error" });
+      }
+
+      const userInvitesList = {
+        $push: {
+          invites: [
+            {
+              server_id,
+              invite_code,
+              timestamp: String(timestamp),
+            },
+          ],
+        },
+      };
+
+      try {
+        await User.updateOne(
+          { _id: new mongoose.Types.ObjectId(inviter_id) },
+          userInvitesList,
+        );
+      } catch (err) {
+        console.error("[/create_invite_link] failed to push user invites:", err);
+        return res.status(500).json({ status: 500, message: "Server error" });
+      }
+
+      return res.json({ status: 200, invite_code });
     } catch (err) {
+      console.error("[/create_invite_link] unexpected error:", err);
       return res.status(500).json({ status: 500, message: "Server error" });
     }
-    return res.json({ status: 200, invite_code });
-  }
-
-  res.json({
-    status: 200,
-    invite_code: response[0].invites[0].invite_code,
-  });
-});
+  },
+);
 
 router.post("/invite_link_info", inviteLinkInfoValidator, validate, async (req, res) => {
   const { invite_link } = req.body;
