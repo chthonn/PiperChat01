@@ -1,7 +1,61 @@
 import User from "../models/User.js";
 import { buildServerTypingEvent } from "../lib/typingEvents.js";
+import config from "../config/index.js";
+import jwt from "jsonwebtoken";
 
 const onlineUsers = new Map();
+
+function getHandshakeToken(socket) {
+  const authToken = socket.handshake?.auth?.token;
+  if (typeof authToken === "string" && authToken.trim()) {
+    return authToken.trim();
+  }
+
+  const headerToken = socket.handshake?.headers?.["x-auth-token"];
+  if (typeof headerToken === "string" && headerToken.trim()) {
+    return headerToken.trim();
+  }
+
+  const authorization = socket.handshake?.headers?.authorization;
+  if (typeof authorization === "string") {
+    const match = authorization.match(/^Bearer\s+(.+)$/i);
+    if (match?.[1]?.trim()) {
+      return match[1].trim();
+    }
+  }
+
+  return "";
+}
+
+function getPayloadUserId(payload) {
+  const value = payload?.id ?? payload?._id ?? payload?.user_id ?? payload?.userId;
+  return value == null ? "" : String(value);
+}
+
+function authenticateSocketHandshake(socket, next) {
+  const token = getHandshakeToken(socket);
+  if (!token || !config.ACCESS_TOKEN) {
+    return next(new Error("Socket authentication required"));
+  }
+
+  try {
+    const payload = jwt.verify(token, config.ACCESS_TOKEN);
+    const userId = getPayloadUserId(payload);
+    if (!userId) {
+      return next(new Error("Socket authentication required"));
+    }
+
+    socket.data.authenticated_user_id = userId;
+    socket.data.authenticated_user = payload;
+    return next();
+  } catch {
+    return next(new Error("Socket authentication required"));
+  }
+}
+
+function isAuthenticatedUserClaim(socket, userId) {
+  return String(socket.data.authenticated_user_id || "") === String(userId || "");
+}
 
 async function shouldSendNotification(userId, preferenceKey) {
   try {
@@ -63,19 +117,26 @@ function setUserOffline(io, userId, socketId) {
 }
 
 function attachSocketHandlers(io) {
+  io.use(authenticateSocketHandshake);
+
   io.on("connection", (socket) => {
     socket.on("channelCreated", (data) => {
       io.emit("newChannel", data);
     });
-  });
 
-  io.on("connection", (socket) => {
     socket.on("get_userid", (user_id) => {
       const normalizedUserId = String(user_id);
 
       if (socket.data.user_id === normalizedUserId) {
         socket.join(normalizedUserId);
         emitPresenceSnapshot(socket);
+        return;
+      }
+
+      if (!isAuthenticatedUserClaim(socket, normalizedUserId)) {
+        socket.emit("socket_auth_error", {
+          message: "Authenticated user mismatch",
+        });
         return;
       }
 
@@ -92,6 +153,13 @@ function attachSocketHandlers(io) {
     socket.on(
       "send_req",
       async (receiver_id, sender_id, sender_profile_pic, sender_name) => {
+        if (!isAuthenticatedUserClaim(socket, sender_id)) {
+          socket.emit("socket_auth_error", {
+            message: "Authenticated user mismatch",
+          });
+          return;
+        }
+
         const shouldNotify = await shouldSendNotification(receiver_id, "friend_requests");
         if (shouldNotify) {
           socket.to(receiver_id).emit("recieve_req", {
@@ -237,4 +305,4 @@ function attachSocketHandlers(io) {
   });
 }
 
-export { attachSocketHandlers };
+export { attachSocketHandlers, authenticateSocketHandshake, isAuthenticatedUserClaim };

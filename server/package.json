@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "test:socket:auth": "node scripts/run-socket-auth-unit.mjs",
     "test:auth:unit": "node scripts/run-auth-jwt-unit.mjs",
     "test:auth": "node scripts/run-auth-integration.mjs",
     "gmail:oauth-setup": "node scripts/gmail-oauth-setup.mjs"
