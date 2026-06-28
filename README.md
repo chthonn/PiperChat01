@@ -4,6 +4,10 @@
 </p>
 
 <p align="center">
+  <img src="https://github.com/0rigin-c0de/PiperChat01/actions/workflows/ci.yml/badge.svg" alt="CI Status">
+</p>  
+
+<p align="center">
   Discord-style chat app • Vite + Tailwind • Express + MongoDB • Socket.IO
 </p>
 
