@@ -10,8 +10,21 @@ const directMessageThreadSchema = new mongoose.Schema({
       sender_pic: String,
       content: String,
       timestamp: Number,
+
+      edited: {
+        type: Boolean,
+        default: false,
+      },
+
+      editedAt: {
+        type: Number,
+        default: null,
+      },
     },
   ],
 });
 
-export default mongoose.model("direct_message_threads", directMessageThreadSchema);
+export default mongoose.model(
+  "direct_message_threads",
+  directMessageThreadSchema
+);
