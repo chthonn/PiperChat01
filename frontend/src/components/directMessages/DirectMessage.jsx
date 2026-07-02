@@ -79,16 +79,19 @@ function DirectMessage() {
         }
 
         return [
-          ...currentMessages,
-          {
-            sender_id: message.sender_id,
-            sender_name: message.sender_name,
-            sender_tag: message.sender_tag,
-            sender_pic: message.sender_pic,
-            content: message.content,
-            timestamp: message.timestamp,
-          },
-        ];
+  ...currentMessages,
+  {
+    sender_id: message.sender_id,
+    sender_name: message.sender_name,
+    sender_tag: message.sender_tag,
+    sender_pic: message.sender_pic,
+    content: message.content,
+    timestamp: message.timestamp,
+
+    edited: message.edited ?? false,
+    editedAt: message.editedAt ?? null,
+  },
+];
       });
     };
 
@@ -98,13 +101,18 @@ function DirectMessage() {
       }
 
       setMessages((currentMessages) =>
-        currentMessages.map((entry) =>
-          String(entry.timestamp) === String(message.timestamp) &&
-          entry.sender_id === message.friend_id
-            ? { ...entry, content: message.content }
-            : entry
-        )
-      );
+  currentMessages.map((entry) =>
+    String(entry.timestamp) === String(message.timestamp) &&
+    entry.sender_id === message.sender_id
+      ? {
+          ...entry,
+          content: message.content,
+          edited: message.edited,
+          editedAt: message.editedAt,
+        }
+      : entry
+  )
+);
     };
 
     const handleDeletedMessage = (message) => {
@@ -214,7 +222,12 @@ function DirectMessage() {
         currentMessages.map((entry) =>
           String(entry.timestamp) === String(message.timestamp) &&
           entry.sender_id === currentUser.id
-            ? { ...entry, content: editingContent.trim() }
+            ? {
+    ...entry,
+    content: editingContent.trim(),
+    edited: true,
+    editedAt: Date.now(),
+  }
             : entry
         )
       );
@@ -327,15 +340,26 @@ function DirectMessage() {
                   ) : (
                     <div className="relative mt-2">
                       <div
-                        className={[
-                          "rounded-2xl border px-3 py-2 text-sm leading-relaxed",
-                          mine
-                            ? "border-brand-400/20 bg-brand-400/10 text-white"
-                            : "border-white/10 bg-white/5 text-white/85",
-                        ].join(" ")}
-                      >
-                        {message.content}
-                      </div>
+  className={[
+    "rounded-2xl border px-3 py-2 text-sm leading-relaxed",
+    mine
+      ? "border-brand-400/20 bg-brand-400/10 text-white"
+      : "border-white/10 bg-white/5 text-white/85",
+  ].join(" ")}
+>
+  <div className="flex items-center gap-2 flex-wrap">
+    <span>{message.content}</span>
+
+    {message.edited && (
+      <span
+        className="rounded bg-white/10 px-1 py-0.5 text-[10px] text-white/60"
+        title={`Edited at ${new Date(message.editedAt).toLocaleString()}`}
+      >
+        Edited
+      </span>
+    )}
+  </div>
+</div>
 
                       {mine ? (
                         <div

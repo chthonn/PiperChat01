@@ -95,13 +95,16 @@ router.post("/send_direct_message", sendDirectMessageValidator, validate, async 
   const friendUserId = String(friend._id);
 
   const message = {
-    sender_id: currentUserId,
-    sender_name: currentUser.username,
-    sender_tag: currentUser.tag,
-    sender_pic: currentUser.profile_pic,
-    content: content.trim(),
-    timestamp: Date.now(),
-  };
+  sender_id: currentUserId,
+  sender_name: currentUser.username,
+  sender_tag: currentUser.tag,
+  sender_pic: currentUser.profile_pic,
+  content: content.trim(),
+  timestamp: Date.now(),
+
+  edited: false,
+  editedAt: null,
+};
 
   const participants = getThreadParticipants(currentUserId, friendUserId);
 
@@ -119,23 +122,29 @@ router.post("/send_direct_message", sendDirectMessageValidator, validate, async 
   if (io) {
     await incrementDmUnread(friendUserId, currentUserId);
     io.to(friendUserId).emit("direct_message_received", {
-      friend_id: currentUserId,
-      sender_id: currentUserId,
-      sender_name: currentUser.username,
-      sender_tag: currentUser.tag,
-      sender_pic: currentUser.profile_pic,
-      content: message.content,
-      timestamp: message.timestamp,
-    });
+  friend_id: currentUserId,
+  sender_id: currentUserId,
+  sender_name: currentUser.username,
+  sender_tag: currentUser.tag,
+  sender_pic: currentUser.profile_pic,
+  content: message.content,
+  timestamp: message.timestamp,
+
+  edited: message.edited,
+  editedAt: message.editedAt,
+});
     io.to(currentUserId).emit("direct_message_received", {
-      friend_id: friendUserId,
-      sender_id: currentUserId,
-      sender_name: currentUser.username,
-      sender_tag: currentUser.tag,
-      sender_pic: currentUser.profile_pic,
-      content: message.content,
-      timestamp: message.timestamp,
-    });
+  friend_id: friendUserId,
+  sender_id: currentUserId,
+  sender_name: currentUser.username,
+  sender_tag: currentUser.tag,
+  sender_pic: currentUser.profile_pic,
+  content: message.content,
+  timestamp: message.timestamp,
+
+  edited: message.edited,
+  editedAt: message.editedAt,
+});
     const shouldNotify = await shouldSendNotification(friendUserId, "direct_messages");
     if (shouldNotify) {
       io.to(friendUserId).emit("direct_message_notification", {
@@ -176,7 +185,11 @@ router.post("/edit_direct_message", editDirectMessageValidator, validate, async 
   }
 
   message.content = content.trim();
-  await thread.save();
+
+message.edited = true;
+message.editedAt = Date.now();
+
+await thread.save();
   await cache.del(`dm:${participants[0]}:${participants[1]}`);
 
   const io = getIO();
@@ -228,15 +241,15 @@ router.post("/delete_direct_message", deleteDirectMessageValidator, validate, as
   const io = getIO();
   if (io) {
     io.to(friend_id).emit("direct_message_deleted", {
-      friend_id: user.id,
-      timestamp,
-      sender_id: user.id,
-    });
+  friend_id: user.id,
+  timestamp,
+  sender_id: user.id,
+});
     io.to(user.id).emit("direct_message_deleted", {
-      friend_id,
-      timestamp,
-      sender_id: user.id,
-    });
+  friend_id,
+  timestamp,
+  sender_id: user.id,
+});
   }
 
   return res.status(200).json({ status: 200, message: "Message deleted" });
