@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+ import { useMemo, useState, useEffect } from "react";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import AuthShell from "../auth/AuthShell";
 import { motion, AnimatePresence } from "framer-motion";
@@ -105,9 +105,17 @@ function AlertBanner({ message, onClose }) {
 }
 
 function Login() {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate('/channels/@me', { replace: true });
+    }
+  }, [navigate]);
+
   const [showPassword, setShowPassword] = useState(false);
   const location = useLocation();
-  const Navigate = useNavigate();
   const [user_values, setuser_values] = useState({ email: "", password: "" });
   const [alert_box, setalert_box] = useState(false);
   const [alert_message, setalert_message] = useState("");
@@ -147,7 +155,7 @@ function Login() {
         localStorage.setItem("token", data.token);
         window.dispatchEvent(new Event("piperchat:auth-token"));
         const redirectTo = location.state?.from?.pathname || "/channels/@me";
-        Navigate(redirectTo, { replace: true });
+        navigate(redirectTo, { replace: true });
       } else if (data.status === 422) {
         setalert_message("Account not verified yet.");
         setalert_box(true);
